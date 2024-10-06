@@ -1,0 +1,15 @@
+jQuery(document).ready(function () {
+    jQuery('.dni_phone a').addClass('tel-link');
+    //jQuery('.dni_phone a').addClass('phonenumber');
+    call_dni();
+});
+
+function call_dni() {
+    var account = "156";
+    var format = "(xxx) xxx-xxxx";
+    var customer = "725";
+    var type = "elan_id";
+    if (typeof call_dni_function == 'function') {
+        call_dni_function(account, format, customer, type);
+    }
+}

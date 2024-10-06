@@ -1,0 +1,792 @@
+/*
+ * DNI Implementation Script.
+ * 
+ * To find the DNI numbers corresponding to different lead source values and
+ * replace it in the property website.
+ * 
+ */
+
+var backwards_compatible = true;
+var account;
+var format;
+var customer;
+var format;
+var referrer_string = document.referrer;
+var referrer_host = (referrer_string.split('/'))[2];
+var referrer_host_old = (referrer_string.split('/'))[2];
+var referrer_host_new = (referrer_string.split('/'))[2];
+var url_string = window.location.href;
+var this_host = (url_string.split('/'))[2];
+var cookie_expire_time = 2592000;
+var cookie_name = "bozzuto_ad_source";
+var referrer_cookie = "bozzuto_dni_referrer";
+var referrer_cookie_expire_time = 2592000;
+var session_cookie_name = "bozzuto_ad_source_session";
+var session_cookie_expire_time = 0;
+var is_number_changed = false;
+var referrer_flag = true;
+var customer_empty = false;
+var popup_tour = true;
+
+/*
+ * function to get parameter values and call main DNI functions
+ *
+ * @param account, format, customer
+ *
+ */
+function call_dni_function(account, format, customer, type , expirecookie) {
+    type = type || 'site_id';
+    account = account;
+    format = format;
+    customer = customer;
+    type = type;
+    set_dni(format, customer, account, type, expirecookie);
+}
+
+/*
+ * function to set dni number
+ *
+ * @param  format, customer
+ *
+ */
+function set_dni(format, customer, account, type, expirecookie) {
+    var adsource_param;
+    var main_lead_source = "";
+    var session_lead_source = "";
+
+    if (read_cookie(referrer_cookie) == null) {   
+        referrer_host = set_referrer_value(referrer_host);
+        referrer_host_old = referrer_host;
+    }else{
+        referrer_host = read_cookie(referrer_cookie);
+        referrer_host_old = referrer_host;
+    }
+
+    referrer_host_new = set_referrer_value(referrer_host_new);
+
+    if(referrer_host_new == undefined || referrer_host_new == 'undefined'){
+        referrer_host_new = '';
+    }
+    if(referrer_host_old == undefined || referrer_host_old == 'undefined'){
+        referrer_host_old = '';
+    }
+    if(referrer_host == undefined || referrer_host == 'undefined'){
+        referrer_host = '';
+    }
+
+
+
+    
+     
+
+    //Phone number is not updated if customer value is null. Only cookie value will be set in this scenario.
+    if (customer == null || customer == "undefined" || customer == '') {
+        is_number_changed = true;
+        customer_empty = true;
+    }
+
+    replace_phone_number(cookie_name, session_cookie_name, type,format,customer,account);
+}
+
+
+function set_referrer_value(host_referrer){
+    nab = get_nab_from_url();
+    utm_referrer = '';
+        if((nab == 0 || nab == 1) && (host_referrer != null && this_host.indexOf(host_referrer) != -1)){
+        utm_referrer =  decodeURIComponent(get_utm_url());
+        if(utm_referrer != "undefined" && utm_referrer != ""){
+            host_referrer = (utm_referrer.split('/'))[2];
+        }
+        }
+    return host_referrer;
+}
+
+/*
+ * function to replace number from Bozzuto DNI API
+ *
+ * @param  format, customer, campaign, adsource
+ *
+ */
+
+async function replace_phone_number(cookie_name, session_cookie_name, type,format,customer,account){ 
+   console.log('replace number');
+    main_lead_source = await set_main_lead_source(cookie_name, type,format,customer,account);
+    session_lead_source = await set_session_lead_source(session_cookie_name, type,format,customer,account);
+    if (!is_number_changed && referrer_flag ) {
+       if (document.cookie.indexOf(cookie_name + '=') == -1 ) { //Check if 30 day persistant cookie is set. else Use session cookie value.
+        replace_number(format, customer, session_lead_source, account, type);
+       }else{
+        replace_number(format, customer, main_lead_source, account, type);
+       }
+     }
+     if(customer_empty){
+        update_tours_url(main_lead_source,'',type);
+     }
+        setTimeout(function(){
+            is_number_changed = false;
+        referrer_flag = true;
+        },5000);
+    
+     
+}
+
+/*
+ * Function to set the Main Ad source Cookie
+ *
+ * @param  format, customer, session_cookie_name, account
+ *
+ */
+
+async function set_main_lead_source(cookie_name, type,format,customer,account){ 
+    var adsource_param;
+    var main_lead_source = "";
+    var session_lead_source = "";
+    main_lead_source = set_cookie_value(cookie_name, type,'main_cookie',format,customer,account);
+    return main_lead_source;
+}
+
+/*
+ * Function to set the Session Based Cookie
+ *
+ * @param  format, customer, session_cookie_name, account
+ *
+ */
+
+async function set_session_lead_source(session_cookie_name, type,format,customer,account){ 
+    var adsource_param;
+    var main_lead_source = "";
+    var session_lead_source = ""; 
+    session_lead_source = set_cookie_value(session_cookie_name, type,'session_cookie',format,customer,account);
+    return session_lead_source;
+}
+
+/*
+ * function to replace number from Bozzuto DNI API
+ *
+ * @param  format, customer, campaign, adsource
+ *
+ */
+function replace_number(format, customer, adsource, account, type) {        
+    
+    var dni_number, lead_source;
+    
+    if (format == null || format == "undefined") {
+        format = '(xxx)-xxx-xxxx';
+    }
+    if (adsource == null) {
+        adsource = 'undefined';
+    }
+    if(adsource == 'yelp'){
+    	adsource = 'Yelp.com';
+    }
+
+    jQuery.ajax({
+        url: 'https://dni.bozzuto.com/dniNumber',
+        type: 'GET',
+        dataType: 'jsonp',
+        data: {'format': format, 'customer': customer, 'adsource': adsource, 'account' : account, 'type' : type},
+        success: function (response) {
+            dni_number = response.dniNumber;
+            lead_source = response.leadSourceValue;
+            if(lead_source != '') {
+                if(type == 'bozzutodotcom'){
+                    lead_source = 'Bozzuto.com';
+                }
+                create_cookie(cookie_name, lead_source, cookie_expire_time);
+                create_cookie(session_cookie_name, lead_source, session_cookie_expire_time);
+                update_tours_url(lead_source,customer,type);
+                jQuery(document).on('DOMNodeInserted', '#scheduler-iframe', function (e) {
+                    update_tours_url_bozzutodotcom(lead_source,customer);
+                });                
+                update_tours_url_mastertemplate(lead_source);
+                update_popup_tour_url(lead_source);
+            }else{
+                update_tours_url(adsource,customer,type);
+                jQuery(document).on('DOMNodeInserted', '#scheduler-iframe', function (e) {
+                    update_tours_url_bozzutodotcom(adsource,customer);
+                });                
+                update_tours_url_mastertemplate(adsource);
+                update_popup_tour_url(adsource);
+            }
+            display_dni_number(dni_number);
+        },
+        async: false
+    });
+}
+
+/*
+ * function to display dni number in website
+ *
+ * @param dni_number
+ *
+ */
+function display_dni_number(dni_number) {
+    console.log('replace display number' + dni_number);
+    var dni_number_count = dni_number.replace(/[^0-9]/g,"").length
+    if (dni_number != '' && dni_number_count >= 10) {
+    console.log('replace display numberssss' + dni_number);
+        jQuery('.phonenumber,.click_to_call_foot,.click_to_call, .phone-number,.IE.BozDNI .p-tel,.BozDNI .p-tel,.IEBozDNI .p-tel').text(dni_number);
+        jQuery('.tel-link,.click_to_call_href_footer,.click_to_call_href, .tbal-phone,.IE.BozDNI .number,.BozDNI .number,.IEBozDNI .number').attr('href', 'tel:' + dni_number);
+        
+        setTimeout(function(){
+        console.log(jQuery('.phone-number').attr('class'));
+        	jQuery('.phone-number').text(dni_number);
+       	 jQuery('.tbal-phone').attr('href', 'tel:' + dni_number);
+        },2000)
+        
+    }
+}
+
+/*
+ * function to update tours bozzuto url
+ *
+ * @param lead_source
+ *
+ */
+function update_tours_url(lead_source,elan_id,type){
+    var value = lead_source;
+    var tour_url_href;
+    console.log('update_tours_url');
+    // src value is set as pws if cookie value is Property Website
+    if(lead_source == 'Property Website' || lead_source == 'PropertyWebsite'){
+        value = 'pws';
+    }
+    if(elan_id == 928){
+        var tour_url = jQuery('a[href*="schedule.tours/bozzuto-group"]').not('.schedule_hotel');
+        var tour_url_old = jQuery('a[href*="tours.bozzuto.com/tours"]').not('.schedule_hotel');
+        if(tour_url.length > 0) {
+            tour_url_href = tour_url.attr('href');
+            var new_tour_url = set_tour_url(value, tour_url_href);
+            tour_url.attr('href', new_tour_url);
+        }
+        if(tour_url_old.length > 0){
+            tour_url_href = tour_url_old.attr('href');
+            var new_tour_url = set_tour_url(value, tour_url_href);
+            tour_url_old.attr('href', new_tour_url);
+        }
+        var tour_url = jQuery('a[onclick*="schedule.tours/bozzuto-group"]').not('.schedule_hotel');
+        var tour_url_old = jQuery('a[onclick*="tours.bozzuto.com/tours"]').not('.schedule_hotel');
+        if(tour_url.length > 0) {
+            tour_url_href = tour_url.attr('onclick');
+            var onclick_url = tour_url_href.match(/'([^']+)'/)[1];
+            var new_tour_url = set_tour_url(value, onclick_url);
+            tour_url_href = tour_url_href.replace(onclick_url, new_tour_url);
+            tour_url.attr('onclick', tour_url_href);
+        }
+        if(tour_url_old.length > 0){
+            tour_url_href = tour_url_old.attr('onclick');
+            var onclick_url = tour_url_href.match(/'([^']+)'/)[1];
+            var new_tour_url = set_tour_url(value, onclick_url);
+            tour_url_href = tour_url_href.replace(onclick_url, new_tour_url);
+            tour_url_old.attr('onclick', tour_url_href);
+        }
+    }else if(type == 'bozzutodotcom'){
+        var tour_url_arr = document.querySelectorAll('a[href*="schedule.tours/bozzuto-group"]');
+        var tour_url;
+    for (var i = 0; i < tour_url_arr.length; i++) {
+        tour_url = '';
+        tour_url_href = tour_url_arr[i].href;
+        if(tour_url.length > 0) {
+            var new_tour_url = set_tour_url(value, tour_url_href);
+            tour_url[i].href = new_tour_url;
+        }
+    }   
+    }else{
+        var tour_url = jQuery('a[href*="schedule.tours/bozzuto-group"]');
+        var tour_url_old = jQuery('a[href*="tours.bozzuto.com/tours"]');
+        var popup_tour_url_hyly = '';
+        popup_tour_url_hyly = jQuery('iframe[src*="https://my.hy.ly/tours/"]');
+        if(tour_url.length > 0) {
+            tour_url_href = tour_url.attr('href');
+            var new_tour_url = set_tour_url(value, tour_url_href);
+            tour_url.attr('href', new_tour_url);
+        }
+        if(tour_url_old.length > 0){
+            tour_url_href = tour_url_old.attr('href');
+            var new_tour_url = set_tour_url(value, tour_url_href);
+            tour_url_old.attr('href', new_tour_url);
+        }
+        if(popup_tour_url_hyly.length > 0){
+           console.log('update popup tour');
+            var popup_tour_href = popup_tour_url_hyly.attr('src');
+        	if(typeof popup_tour_href != 'undefined'){
+            		var popup_new_tour_url = set_popup_tour_url(value, popup_tour_href);
+            		popup_tour_url_hyly.attr('src', popup_new_tour_url);	
+            	}
+        }else{
+        	console.log('popup_tour_scheduler');
+        	var popup_trigger_container = jQuery('#tourpopup-trigger');
+        	if(popup_trigger_container.length > 0){
+        		console.log('popup_tour_scheduler1');
+        		var data_iframe_url = jQuery('#tourpopup-trigger').attr('data-iframe-url');
+        		if(typeof data_iframe_url != 'undefined'){
+        			var popup_new_tour_url = set_popup_tour_url(value, data_iframe_url);
+        			popup_trigger_container.attr('data-iframe-url', popup_new_tour_url);	
+        		}
+        		console.log(popup_new_tour_url);
+        		
+        	}else{
+        		setTimeout(function(){
+        			var popup_tour_url_hyly = jQuery('iframe[src*="https://my.hy.ly/tours/"]');
+            			var popup_tour_href = popup_tour_url_hyly.attr('src');
+        			if(typeof popup_tour_href != 'undefined' ){
+            				var popup_new_tour_url = set_popup_tour_url(value, popup_tour_href);
+            				popup_tour_url_hyly.attr('src', popup_new_tour_url);	
+            				}
+        		},4000);
+        	}
+        }
+        var tour_url = jQuery('a[onclick*="schedule.tours/bozzuto-group"]');
+        var tour_url_old = jQuery('a[onclick*="tours.bozzuto.com/tours"]');
+        if(tour_url.length > 0) {
+            tour_url_href = tour_url.attr('onclick');
+            var onclick_url = tour_url_href.match(/'([^']+)'/)[1];
+            var new_tour_url = set_tour_url(value, onclick_url);
+            tour_url_href = tour_url_href.replace(onclick_url, new_tour_url);
+            tour_url.attr('onclick', tour_url_href);
+        }
+        if(tour_url_old.length > 0){
+            tour_url_href = tour_url_old.attr('onclick');
+            var onclick_url = tour_url_href.match(/'([^']+)'/)[1];
+            var new_tour_url = set_tour_url(value, onclick_url);
+            tour_url_href = tour_url_href.replace(onclick_url, new_tour_url);
+            tour_url_old.attr('onclick', tour_url_href);
+        }
+    }
+}
+
+/**
+ * Function to set the new schedule a tour URL
+ */
+function set_tour_url(value, tour_url_href){
+        var new_tour_url = "";
+    nab = get_nab_from_url();
+    if(nab != 0 && nab != 1){
+        nab = '';   
+    }
+        if(tour_url_href.indexOf('?') >= 0){
+            var tour_url_array = tour_url_href.split('?');
+            var prefix_tour_url = tour_url_array[0];
+            var suffix_tour_url = tour_url_array[1];
+            var new_parameters = "";
+            if(suffix_tour_url.indexOf('&') >= 0){
+                var parameter_array = suffix_tour_url.split('&');
+                var is_src_present = false;
+                for(var i=0; i < parameter_array.length; i++){
+                     if(parameter_array[i].indexOf('src') >= 0){
+                         is_src_present = true;
+             if(nab != ''){
+                            parameter_array[i] = 'src=w.'+ value + '.' + nab;
+                
+             }else{
+                            parameter_array[i] = 'src=w.'+ value;
+                
+             }
+                     }
+                     if(i !== 0) {
+                         new_parameters = new_parameters + '&';
+                     }
+                    new_parameters = new_parameters + parameter_array[i];
+                }
+                if(!is_src_present) {
+            if(nab != ''){
+                        new_parameters = new_parameters + '&src=w.'+ value + '.' + nab;
+                
+            }else{
+                        new_parameters = new_parameters + '&src=w.'+ value;
+                
+            }
+                }
+            }
+            else if(suffix_tour_url.indexOf('src') >= 0){
+        if(nab != ''){
+                    new_parameters = 'src=w.'+ value + '.' + nab;
+                
+        }else{
+                    new_parameters = 'src=w.'+ value;
+                
+        }
+            } else{
+        if(nab != ''){
+                    new_parameters = suffix_tour_url + '&src=w.'+ value + '.' + nab;
+                
+        }else{
+                    new_parameters = suffix_tour_url + '&src=w.'+ value;
+                
+        }
+            }
+            new_tour_url = prefix_tour_url +'?'+ new_parameters;
+        } else {
+        if(nab != ''){
+                new_tour_url = tour_url_href + '?src=w.'+ value + '.' + nab;
+                
+        }else{
+                new_tour_url = tour_url_href + '?src=w.'+ value;
+                
+        }
+        }
+
+        return new_tour_url;
+}
+
+
+
+/**
+ * Function to set the new schedule a tour URL
+ */
+function set_popup_tour_url(value, tour_url_href){
+        var new_tour_url = "";
+    nab = get_nab_from_url();
+    if(nab != 0 && nab != 1){
+        nab = '';   
+    }
+        if(tour_url_href.indexOf('?') >= 0){
+            var tour_url_array = tour_url_href.split('?');
+            var prefix_tour_url = tour_url_array[0];
+            var suffix_tour_url = tour_url_array[1];
+            var new_parameters = "";
+            if(suffix_tour_url.indexOf('&') >= 0){
+                var parameter_array = suffix_tour_url.split('&');
+                var is_src_present = false;
+                for(var i=0; i < parameter_array.length; i++){
+                     if(parameter_array[i].indexOf('src') >= 0){
+                         is_src_present = true;
+             if(nab != ''){
+                            parameter_array[i] = 'src=w.'+ value + '.' + nab;
+                
+             }else{
+                            parameter_array[i] = 'src=w.'+ value;
+                
+             }
+                     }
+                     if(i !== 0) {
+                         new_parameters = new_parameters + '&';
+                     }
+                    new_parameters = new_parameters + parameter_array[i];
+                }
+                if(!is_src_present) {
+            if(nab != ''){
+                        new_parameters = new_parameters + '&src=w.'+ value + '.' + nab;
+                
+            }else{
+                        new_parameters = new_parameters + '&src=w.'+ value;
+                
+            }
+                }
+            }
+            else if(suffix_tour_url.indexOf('src') >= 0){
+        if(nab != ''){
+                    new_parameters = 'src=w.'+ value + '.' + nab;
+                
+        }else{
+                    new_parameters = 'src=w.'+ value;
+                
+        }
+            } else{
+        if(nab != ''){
+                    new_parameters = suffix_tour_url + '&src=w.'+ value + '.' + nab;
+                
+        }else{
+                    new_parameters = suffix_tour_url + '&src=w.'+ value;
+                
+        }
+            }
+            new_tour_url = prefix_tour_url +'?'+ new_parameters;
+        } else {
+        if(nab != ''){
+                new_tour_url = tour_url_href + '?src=w.'+ value + '.' + nab;
+                
+        }else{
+                new_tour_url = tour_url_href + '?src=w.'+ value;
+                
+        }
+        }
+
+        return new_tour_url;
+}
+
+/*
+ * function to get adsource parameter from url
+ *
+ * @param null
+ * 
+ */
+function get_adsource_from_url() {
+    var adsource_param = '';
+    var url_string_lower = decodeURI(url_string.toLowerCase());
+    
+    adsource_param = get_parameter("utm_source", url_string_lower);
+    if (adsource_param.length == 0) {
+        adsource_param = get_parameter("utm%5Fsource", url_string_lower);
+    }
+
+    return adsource_param;
+}
+
+
+
+/*
+ * function to get Nab parameter from url
+ *
+ * @param null
+ * 
+ */
+function get_nab_from_url() {
+    var nab_param = '';
+    var url_string_lower = url_string.toLowerCase();
+    
+    nab_param = get_parameter("nab", url_string_lower);
+    if (nab_param.length == 0) {
+        nab_param = get_parameter("nab", url_string_lower);
+    }
+
+    return nab_param;
+}
+
+/*
+ * function to get utm referrer parameter from url
+ *
+ * @param null
+ * 
+ */
+function get_utm_url() {
+    var utm_param = '';
+    var url_string_lower = url_string.toLowerCase();
+    
+    utm_param = get_parameter("utm_referrer", url_string_lower);
+    if (utm_param.length == 0) {
+        utm_param = get_parameter("utm%5Freferrer", url_string_lower);
+    }
+
+    return utm_param;
+}
+
+
+
+/*
+ * function to check if http referrer has corresponding lead source value and replace correspomding new phonenumber
+ *
+ * @param referrer_host, format, customer
+ *
+ */
+function match_referrer(referrer_host, format, customer, account, type) {
+    var lead_source;
+    var dni_number;
+    jQuery.ajax({
+        url: 'https://dni.bozzuto.com/referrerDniNumber',
+        type: 'GET',
+        dataType: 'jsonp',
+        data: {'referrer_host': referrer_host, 'format': format, 'customer': customer, 'account' : account, 'type' : type},
+        success: function (response) {
+                lead_source = response.leadSourceValue;
+                dni_number = response.dni_number;
+        if (read_cookie(cookie_name) == null) {     
+                create_cookie(cookie_name, lead_source, cookie_expire_time);
+        }
+        create_cookie(session_cookie_name, lead_source, session_cookie_expire_time);
+        if(is_number_changed == false){
+            is_number_changed = true;
+                update_tours_url(lead_source,customer,type); 
+                display_dni_number(dni_number);
+                jQuery(document).on('DOMNodeInserted', '#scheduler-iframe', function (e) {
+                    update_tours_url_bozzutodotcom(lead_source,customer);
+                });
+                update_tours_url_mastertemplate(lead_source);
+                update_popup_tour_url(lead_source);
+        }else{
+            update_tours_url_mastertemplate(lead_source);
+            update_popup_tour_url(lead_source);
+        }
+
+        },
+        async: false
+    });
+}
+
+/*
+ * function to create cookie
+ *
+ * @param name, value, seconds
+ *
+ */
+function create_cookie(name, value, seconds) {
+    var domain = this_host.replace( "www.", "" );
+    if(value == 'PropertyWebsite'){
+    value = 'Property Website';
+    }
+    if (seconds) {
+        var date = new Date();
+        date.setTime(date.getTime() + (seconds * 1000));
+        var expires = "; expires=" + date.toGMTString();
+    }
+    else
+        var expires = "";
+    document.cookie = name + "=" + value + expires + "; path=/;domain=."+ domain+";secure";
+
+}
+
+/*
+ * function to read cookie
+ *
+ * @param name
+ *
+ */
+function read_cookie(name) {
+    var nameEQ = name + "=";
+    var ca = document.cookie.split(';');
+    for (var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ')
+            c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) == 0)
+            return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+}
+
+/*
+ * function to get paramater from url
+ *
+ * @param name, url_string
+ *
+ */
+function get_parameter(name, url_string) {
+    name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+    var regexS = "[\\?&]" + name + "=([^&#]*)";
+    var regex = new RegExp(regexS);
+    var results = regex.exec(url_string);
+    if (results == null) {
+        return "";
+    } else {
+        return results[1];
+    }
+}
+
+/**
+ * Function to update Schedule a tour Iframe src in Master Template
+ */
+function update_tours_url_mastertemplate(lead_source){
+    var value = lead_source;
+    // src value is set as pws if cookie value is Property Website
+    if(lead_source == 'Property Website' || lead_source == 'PropertyWebsite'){
+        value = 'pws';
+    }
+    var tour_url = jQuery('#hy-frame-container').attr('src');
+    var iframe = jQuery('#hy-frame-container');
+    if(tour_url != null && tour_url != '' && typeof  tour_url != 'undefined'){
+        var new_tour_url = set_tour_url(value, tour_url);
+        iframe.attr('src',new_tour_url);
+    }
+}
+
+/**
+ * Function to update Schedule a tour Popup iframe URL
+ */
+function update_popup_tour_url(lead_source){
+    if(popup_tour){
+    popup_tour = false;
+    if(jQuery('#tour_path_input').length){
+        var path = jQuery('#tour_path_input').val();
+    }
+    if(lead_source == 'Property Website' || lead_source == 'PropertyWebsite'){
+        lead_source = 'pws';
+    }
+    (function(d, t) {
+        var s = d.createElement(t),
+          options = {
+            id: 'toursite',
+            host: 'my.hy.ly',
+            path: path + '&src=w.'+lead_source,
+            triggerType: 'click',
+            triggerValue: '.hytour-link',
+            height: 800,
+            width: 1250
+          };
+
+        s.src = ('https:' == d.location.protocol ? 'https://' : 'http://') + 'my.hy.ly/mktg/js/popup.js?v4';
+        s.onload = s.onreadystatechange = function () {
+          var rs = this.readyState;
+          if (rs) if (rs != 'complete') if (rs != 'loaded') return;
+          try { new HyPopup(options); } catch (e) {}
+        };
+        var scr = d.getElementsByTagName(t)[0];
+        scr.parentNode.insertBefore(s, scr);
+      })(document, 'script');
+      }
+}
+
+/**
+ * Function to update Schedule a tour Iframe src in bozzuto.com
+ */
+function update_tours_url_bozzutodotcom(lead_source,elan_id){
+    var value = lead_source;
+    // src value is set as pws if cookie value is Property Website
+    if(lead_source == 'Property Website' || lead_source == 'PropertyWebsite'){
+        value = 'pws';
+    }
+    var tour_url = jQuery('#TourButton').attr('data-schedule-tour');
+    var iframe = jQuery('#scheduler-iframe');
+    if(tour_url != null && tour_url != '' && typeof  tour_url != 'undefined'){
+        var new_tour_url = set_tour_url(value, tour_url);
+        iframe.attr('src',new_tour_url);
+    }
+}
+
+/**
+ * Function to set the Cookie value
+ * @returns lead_source
+ */
+function set_cookie_value(cookie,type, cookie_type,format,customer,account){
+    var expire_time = 0;
+    var lead_source ="";
+
+    if(cookie_type == 'session_cookie'){
+        expire_time = session_cookie_expire_time;
+        referrer_host = referrer_host_new;
+    }else{
+        expire_time = cookie_expire_time;
+        referrer_host = referrer_host_old;
+    }
+
+    if(referrer_host == null){
+        referrer_host = '';
+    }
+    if(referrer_host == 't.co'){
+    referrer_host = 'www.' + referrer_host;
+    }
+    
+    //Check if cookie already exists
+    if (read_cookie(cookie) !== null) {
+        lead_source = read_cookie(cookie);
+        create_cookie(referrer_cookie, referrer_host_old, referrer_cookie_expire_time);
+    }
+    // Get Ad source from utm_source
+    else if (get_adsource_from_url() !== '') {
+        lead_source = get_adsource_from_url();
+        create_cookie(cookie, lead_source, expire_time);
+        create_cookie(referrer_cookie, referrer_host_old, referrer_cookie_expire_time);
+    }
+    //Fetch the Ad source from referrer. Condition also check current domain is not equal to referrer host.
+    else if (referrer_host != null && this_host.indexOf(referrer_host) == -1 && referrer_host.indexOf('undefined') == -1) {
+        referrer_flag = false;
+        match_referrer(referrer_host, format, customer, account, type);
+    
+        if(referrer_host == 'www.t.co'){
+        referrer_host = 't.co';
+        }
+        create_cookie(referrer_cookie, referrer_host_old, referrer_cookie_expire_time);
+    }
+    // From the Bozzuto.com site
+    else if (type == 'bozzutodotcom') {        
+        lead_source = 'Bozzuto.com';
+        create_cookie(cookie, lead_source, expire_time);
+        create_cookie(referrer_cookie, referrer_host_old, referrer_cookie_expire_time);
+    }
+    // If none of the above conditions are true, Source is set to Property Website
+    else {
+        lead_source = 'Property Website';
+        create_cookie(cookie, lead_source, expire_time);
+        create_cookie(referrer_cookie, referrer_host_old, referrer_cookie_expire_time);
+    }
+    return lead_source;
+}

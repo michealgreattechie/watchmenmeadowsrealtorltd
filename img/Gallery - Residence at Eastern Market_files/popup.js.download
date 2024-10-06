@@ -1,0 +1,394 @@
+/* 
+* triggerType:  timeout, scroll_pixel, scroll_percentage, widget (with: triggerValue), exit (with exitCallout), click
+* triggerValue: 20s, 200px, 20%, class name
+*/
+function HyPopup (opts){
+  var self = this;
+  
+  this.host = "my.hy.ly";
+  this.frame = null;
+  this.channel = 3;
+  this.variant = "";
+  this.path = "";
+  this.pid = "";
+  this.height = 300;
+  this.width = 200;
+  this.widthUnit = "px";
+  this.autoResize = true;
+  this.timeInterval= 200;
+  this.triggerType = 'timeout';
+  this.triggerValue = '20s';
+  this.visible = false;
+  this.closeIcon = "https://s3.amazonaws.com/img.myhyly/tpl/close.png";
+  
+  this.init = function(){
+    for (key in opts) {
+      this[key] = opts[key];
+    }
+    this.generateFrameUrl();
+    this.createOverlay();
+    this.createFrame();
+    this.setupTrigger();
+    this.setupResize();
+    this.autoShow();
+  };
+  
+  this.createOverlay = function() {
+    var idPrefix = "#hy-" + this.id;
+    
+    //default style
+    if (this.triggerType == "widget"){
+      var css = [
+        idPrefix + '.hy-overlay *{box-sizing:content-box !important}',
+        idPrefix + '.hy-overlay{background:#20bcee;position:fixed;right:50px;bottom:-10px;z-index:99900;display:none}',
+        idPrefix + ' .hy-wrap{border:5px solid transparent;height:0;background-color:#FFFFFF;margin:0;padding:0;position:relative;text-align:center;box-shadow:none;-webkit-transition:height 0.2s ease;-moz-transition:height 0.2s ease}',
+        idPrefix + ' .hy-wrap { width: '+ (this.width - 10) +'px; } .hy-wrap iframe { width:100%; border:none; }',
+        idPrefix + ' .hy-callout{color:#ffffff;cursor:pointer;font-family:Helvetica,sans-serif;font-size:16px;font-weight:300;line-height:22px;margin:0;padding:8px 40px 8px 20px;position:relative}',
+        idPrefix + ' .hy-arrow:before{border-bottom:9px solid #fff;border-left:9px solid transparent;border-right:9px solid transparent;content:"";display:inline-block;right:15px;position:absolute;top:25px}',
+        idPrefix + ' .hy-close{background-image:url("'+ this.closeIcon +'");display:none;height:30px;position:absolute;right:-15px;text-decoration:underline;text-indent:-9999px;top:-15px;width:30px}',
+        idPrefix + ' .hy-callout { width: '+ (this.width - 60) +'px; }',
+        idPrefix + '.hy-expanded{bottom:0 !important}',
+        idPrefix + '.hy-expanded .hy-wrap{border:5px solid transparent;box-shadow:0 0 18px rgba(0,0,0,0.4)}',
+        idPrefix + '.hy-expanded .hy-wrap{ height: '+ this.height +'px; }',
+        idPrefix + '.hy-expanded .hy-callout{display:none}',
+        idPrefix + '.hy-expanded .hy-close{display:block}'
+      ];
+      
+    } else {
+      var css = [
+        idPrefix + '.hy-overlay *{box-sizing:content-box !important}',
+        idPrefix + '.hy-overlay{background:rgba(0, 0, 0, 0.7) none repeat scroll 0 0;height:100%;left:0;position:fixed;text-align:center;top:0;display:none;width:100%;z-index:99900;overflow: hidden;}',
+        idPrefix + ' .hy-wrap{background-color:#FFFFFF;margin:44px auto;padding:0;position:relative;text-align:center;-webkit-border-radius:5px;-moz-border-radius:5px;border-radius:5px;-webkit-box-shadow:0 0 18px rgba(0,0,0,0.4);-moz-box-shadow:0 0 18px rgba(0,0,0,0.4);box-shadow:0 0 18px rgba(0,0,0,0.4)}',
+        idPrefix + ' .hy-close{background-image:url("'+ this.closeIcon +'");display:block;height:30px;position:absolute;right:-12px;text-decoration:underline;text-indent:-9999px;top:-15px;width:30px}',
+        ' .hy-noscroll {overflow: hidden !important;}',
+        idPrefix + ' .hy-wrap { max-width: '+ (this.width - 10) + this.widthUnit + '; width: 95%; } .hy-wrap iframe { width:100%; border:none; margin: 3px 0;}',
+        '@media (max-width: 768px) { '+ idPrefix + ' .hy-wrap { width: 90%; } }'
+      ]
+    }
+    
+    var style = document.createElement('style');
+    style.type = 'text/css';
+    
+    if (style.styleSheet){
+      style.styleSheet.cssText = css.join(" \n ");
+    } else {
+      style.appendChild(document.createTextNode(css.join(" \n ")));
+    }
+
+    document.getElementsByTagName('head')[0].appendChild(style);
+    
+    //create overlay
+    if (this.triggerType == "widget"){
+      var overlay = '<p class="hy-callout" id="hy-'+this.id+'-show" href="#" onclick="return false;">'+self.triggerValue+'<span class="hy-arrow"></span></p> '+
+        '<div class="hy-wrap"> ' +
+          '<div id="hy-'+this.id+'-content" class="hy-main">' +
+            'Fill out my <a href="'+this.frameUrl+'">online form</a>. '+
+          '</div> <a id="hy-'+this.id+'-close" href="#" onclick="return false;" class="hy-close">Close</a> '+
+        '</div>';
+        
+    } else {
+      var overlay = '<div class="hy-wrap">'+
+          '<div id="hy-'+this.id+'-content" class="hy-main">' +
+            'Fill out my <a href="'+this.frameUrl+'">online form</a>.'+
+          '</div>' +
+          '<a id="hy-'+this.id+'-close" href="#" onclick="return false;" class="hy-close">Close</a> '+
+        '</div>';
+    }
+    
+    this.overlay = document.getElementById("hy-" + this.id);
+    this.overlay.innerHTML = overlay;
+  };
+   
+  this.createFrame = function(){
+    document.getElementById("hy-" + this.id  + "-content").innerHTML = '<iframe src="about:blank" allowtransparency="true" frameborder="0" name="'+ this.id +
+      '" id="hy-frame-'+ this.id +'" style="width:100%; height:'+ this.height +'px !important; border:none;" scrolling="'+ ( this.path.indexOf("/site") ? "yes" : "no") +'" allowfullscreen></iframe>';
+    
+    // also get the frame for future use.
+    this.frame = document.getElementById("hy-frame-" + this.id);
+    // set the time on the on load event of the frame
+    this.addEvent(this.frame, 'load', this.bindMethod(this.setHeight, this));
+    this.addEvent(document.getElementById("hy-" + this.id  + "-close"), 'click', this.bindMethod(this.hide, this));
+    
+    if (this.triggerType == "widget"){
+      this.addEvent(document.getElementById("hy-" + this.id  + "-show"), 'click', this.bindMethod(this.show, this));
+    }
+  };
+  
+  this.generateFrameUrl = function () {
+    if (this.path) { // generate hyTours url or reuse the given url
+      this.frameUrl = 'https://' + this.host + this.path;
+    } else {
+      this.frameUrl = 'https://' + this.host + '/mktg/lp/' + [this.tenant, this.id, this.channel, this.variant].join("/");
+      if (this.pid) {
+        this.frameUrl += "?pid=" + this.pid;
+      }
+    }
+    
+    this.frameUrl = this.addParamToUrl(this.frameUrl, "resize", "---" + this.id);
+    this.frameUrl = this.addParamToUrl(this.frameUrl, "page_url", encodeURIComponent(location.protocol + "//" + location.hostname));
+  };
+  
+  this.setupTrigger = function(){
+    switch(this.triggerType){
+      case 'timeout':
+        setTimeout(function(){ self.show(); }, parseInt(this.triggerValue.replace('s', ''))*1000);
+        break;
+      
+      case 'scroll_pixel':
+        var oldOnScroll = window.onscroll;
+        
+        window.onscroll = function (e) {
+          if(oldOnScroll) oldOnScroll();
+
+          var vertical_position = 0;
+          if (pageYOffset){
+            vertical_position = pageYOffset; //usual
+          } else if (document.documentElement.clientHeight){
+            vertical_position = document.documentElement.scrollTop; //ie
+          } else if (document.body) {
+            vertical_position = document.body.scrollTop; //ie quirks
+          } 
+          if(vertical_position > parseFloat(self.triggerValue.replace('px', '')) ) self.show();
+        }
+        break;
+      
+      case 'scroll_percentage':
+        var oldOnScroll = window.onscroll;
+        window.onscroll = function (e) {
+          if(oldOnScroll) oldOnScroll();
+          
+          var vertical_position = 0;
+          if (pageYOffset){
+            vertical_position = pageYOffset; //usual
+          } else if (document.documentElement.clientHeight) {
+            vertical_position = document.documentElement.scrollTop; //ie
+          } else if (document.body){
+            vertical_position = document.body.scrollTop; //ie quirks
+          }
+          if(parseFloat(vertical_position / self.scrollMaxY())*100 > parseFloat(self.triggerValue.replace('%', '')) ) self.show();
+        }
+        break;
+        
+      case 'widget':
+        self.show();
+        break;
+        
+      case 'click':
+        self.updateLinks();
+        setInterval(function(){ self.updateLinks(); }, 2000); // catch links generated on the fly
+        break;
+        
+      case 'exit':
+        setTimeout(function(){
+          var oldOBU = window.onbeforeunload;
+          
+          window.onbeforeunload = function() { 
+            if(oldOBU) oldOBU();
+            self.show();
+            return self.exitCallout || "Please subscribe";
+          };
+        }, 1000);
+        break;
+    }
+    
+    var oldKeyPress = window.onscroll;
+    document.onkeypress = function(evt) {
+      if(oldKeyPress) oldKeyPress(evt);
+      evt = evt || window.event;
+      if (evt.keyCode == 27) {
+        self.hide();
+      }
+    };
+  };
+  
+  this.scrollMaxY = function() {
+    var innerh = 0, 
+      yWithScroll = 0;
+    if (window.innerHeight){
+      innerh = window.innerHeight;
+    }else{
+      innerh = document.body.clientHeight;
+    }
+    if (window.innerHeight && window.scrollMaxY){
+      yWithScroll = window.innerHeight + window.scrollMaxY; // Firefox 
+    } else if (document.body.scrollHeight > document.body.offsetHeight){ 
+      yWithScroll = document.body.scrollHeight; // all but Explorer Mac 
+    } else { 
+      yWithScroll = document.body.offsetHeight; // works in Explorer 6 Strict, Mozilla (not FF) and Safari 
+    } 
+    
+    return yWithScroll-innerh; 
+  };
+  
+  this.setupResize = function() {
+    this.addEvent(window, 'message', this.bindMethod(this.changeHeight, this));
+    this.addEvent(window, 'resize', this.bindMethod(this.setHeight, this));
+  };
+  
+  this.autoShow = function() {
+    if (this.getUrlParameter("tourpopup")) {
+      this.show();
+    }
+  };
+   
+  // add event function for different browsers
+  this.addEvent = function (obj, type, fn) {
+    if (obj.attachEvent) {
+      obj["e" + type + fn] = fn;
+      obj[type + fn] = function () { obj["e" + type + fn](window.event); };
+      obj.attachEvent("on" + type, obj[type + fn]);
+    } else{
+      obj.addEventListener(type, fn, false);
+    }
+  };
+   
+  this.setHeight = function(){
+    this.frame.setAttribute("style", "height:" + this.getMaxHeight(this.height) + "px !important");
+  };
+   
+  this.changeHeight = function (evt){
+    if(evt.data.height){
+      if (evt.data.source && evt.data.source.indexOf("---") > -1) {
+        if (evt.data.source.indexOf(this.id) > -1) {
+          this.frame.setAttribute("style", "height:" + this.getMaxHeight(evt.data.height) + "px !important");
+        }
+        
+      } else if (evt.data.source != "hyTours" && this.frameUrl.indexOf('tours/') == -1 || evt.data.source == "hyTours" && this.frameUrl.indexOf('tours/') > -1) { // old
+        this.frame.setAttribute("style", "height:" + this.getMaxHeight(evt.data.height) + "px !important");
+      }
+    } else if (evt.data.redirect_url) {
+      window.location.href = evt.data.redirect_url;
+    }
+  };
+  
+  this.getMaxHeight = function (height) {
+    var innerh = (window.innerHeight || document.body.clientHeight) - 100;
+    
+    return height > innerh ? innerh : height;
+  },
+   
+  this.bindMethod = function(method, scope) {
+    return function() {
+      method.apply(scope, arguments);
+    };
+  };
+  
+  this.updateLinks = function () {
+    var links = document.getElementsByClassName("hytour-link");
+    
+    if (self.triggerValue && self.triggerValue != ".hytour-link") {
+      links = document.getElementsByClassName(self.triggerValue.replace(".", ""));
+    }
+    
+    for (var i = 0; i < links.length; i++) {
+      var l = links[i];
+      if (!l.getAttribute("data-init")) {
+        this.addEvent(l, 'click', this.bindMethod(this.show, this));
+        l.setAttribute("data-init", 1);
+      }
+    }
+  };
+
+  this.addParamToUrl = function(url, name, val) {
+    var currVal = this.getUrlParameter(name, url.indexOf("?") > -1 ? ("?" +  url.split("?")[1]) : null);
+  
+    if (url.indexOf(name + "=") == -1) { // add param
+      return url + (url.indexOf("?") > -1 ? "&" : "?") + name + "=" + val;
+    
+    } else if (currVal && currVal != val && url.indexOf(name + "=" + currVal) > -1) { // update param
+      return url.replace(name + "=" + currVal, name + "=" + val);
+    
+    } else {
+      return url;
+    }
+  }
+  
+  this.getUrlParameter = function(name, search) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(search || location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+  };
+
+  this.show = function(ev){
+    // add beacon source, channel
+    var srcC = ev && ev.target && ev.target.getAttribute("data-content"),
+      tourpopup = ev && ev.target && ev.target.getAttribute("data-tourpopup") || this.getUrlParameter("tourpopup");
+      
+    try {
+      if (hyBot.detected.src) {
+        this.frameUrl = this.addParamToUrl(this.frameUrl, "src", srcC ? (hyBot.detected.src + "." + srcC) : hyBot.detected.src);
+      }
+      if (hyBot.detected.channel) {
+        this.frameUrl = this.addParamToUrl(this.frameUrl, "channel", hyBot.detected.channel);
+      }
+      
+      if (this.srcC != srcC) {
+        this.secondShow = false; // reload iframe if content tag is different
+      }
+
+    } catch (ex) {
+      // hyBeacon not loaded
+    }
+    
+    if (tourpopup) {
+      this.frameUrl = this.addParamToUrl(this.frameUrl, "tourpopup", tourpopup);
+      this.frame.setAttribute("src", this.frameUrl);
+      this.secondShow = true;
+    }
+    
+    if (!this.secondShow) {
+      this.frame.setAttribute("src", this.frameUrl);
+      this.secondShow = true;
+      
+    } else {
+      if (this.triggerType == "scroll_pixel" || this.triggerType == "scroll_percentage") { //show once for these trigger
+        return false;
+      }
+    }
+
+    if (this.triggerType == "widget"){
+      this.overlay.style.display = "block";
+      if(this.secondShow) this.addClass(this.overlay, 'hy-expanded');
+      
+    } else {
+      if(!this.visible) this.overlay.style.display = "block"; //show once if not widget
+      this.visible = true;
+    }
+    
+    this.addClass(document.body, 'hy-noscroll');
+    
+    this.srcC = srcC; // cache current content tag, so we will reload iframe when user clicks on header/footer links
+    
+    if(ev) ev.preventDefault();
+  };
+  
+  this.hide = function(ev){
+    if (this.triggerType == "widget"){
+      this.removeClass(this.overlay, 'hy-expanded');
+    } else {
+      this.overlay.style.display = 'none';
+      this.visible = false;
+    }
+    
+    this.removeClass(document.body, 'hy-noscroll');
+    
+    this.frame.setAttribute("src", "about:blank");
+    this.secondShow = false;
+    
+    if(ev) ev.preventDefault();
+  };
+  
+  this.addClass = function(o, c){
+    var re = new RegExp("(^|\\s)" + c + "(\\s|$)", "g");
+    if (re.test(o.className)) return;
+    o.className = (o.className + " " + c).replace(/\s+/g, " ").replace(/(^ | $)/g, "");
+  }
+
+  this.removeClass = function(o, c){
+    var re = new RegExp("(^|\\s)" + c + "(\\s|$)", "g");
+    o.className = o.className.replace(re, "$1").replace(/\s+/g, " ").replace(/(^ | $)/g, "");
+  }
+  
+  this.init();
+}

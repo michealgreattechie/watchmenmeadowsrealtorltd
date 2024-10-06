@@ -1,0 +1,131 @@
+:root {
+  /**
+     * typography
+     */
+
+  --ff-nunito-sans: "Nunito Sans", sans-serif;
+  --ff-poppins: "Poppins", sans-serif;
+}
+
+.weekly-activity {
+  text-align: left;
+  padding: 30px;
+  background-color: #87be103a;
+  margin-bottom: 20px;
+}
+
+.weekly-activity h1 {
+  font-size: 50px;
+  margin-bottom: 10px;
+  font-family: "Nunito Sans", sans-serif;
+}
+.weekly-activity p {
+  font-size: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+strong {
+  color: #86be10;
+}
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.activity-item {
+  text-align: center;
+  padding: 15px;
+  background-color: #87be103a;
+}
+
+.activity-item img {
+  width: 50px;
+  height: 50px;
+  margin-bottom: 20px;
+  padding: 5px;
+  filter: grayscale(80%) brightness(200%);
+}
+.activity-item h2 {
+  font-size: 15px;
+  margin-bottom: 10px;
+  text-align: left;
+}
+.activity-item i {
+  font-size: 20px;
+}
+
+.property-section {
+  background-color: #fff; /* Adjust background color */
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.property-section h2 {
+  color: #86be10;
+  margin-bottom: 30px;
+  font-size: 50px;
+}
+
+.property-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 columns */
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.property-item {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(18, 182, 15, 0.1);
+  transition: transform 0.2s;
+  text-align: center; /* Center text and images */
+}
+
+.property-item img {
+  width: 50px; /* Adjust icon size */
+  height: 50px;
+  margin-bottom: 10px;
+  display: block; /* Center the image */
+  margin-left: auto; /* Center the image */
+  margin-right: auto; /* Center the image */
+}
+
+.property-item h3 {
+  margin: 10px 0;
+  font-size: 20px;
+  color: #86be10;
+}
+
+/* Hover effect */
+.property-item:hover {
+  transform: scale(1.05);
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+  .property-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns for tablets */
+  }
+  .weekly-activity h1 {
+    font-size: 1.3em;
+  }
+}
+
+@media (max-width: 480px) {
+  .property-grid {
+    grid-template-columns: 1fr; /* 1 column for mobile */
+  }
+
+  .property-item {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .activity-grid {
+    grid-template-columns: 1fr;
+  }
+}

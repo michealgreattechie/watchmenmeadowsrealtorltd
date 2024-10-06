@@ -1,0 +1,1666 @@
+var hyAM = window.hyAM || {
+  /* helpers: url & params */
+  pageUrl: function() {
+    return location.href;
+  },
+  
+  srcParam: function() {
+    return this.getUrlParam("src");
+  },
+
+  channelParam: function() {
+    return this.getUrlParam("channel") || this.getUrlParam("hyly_channel");;
+  },
+
+  gaCid: function() {
+    try {
+      // also get sid, sct
+      if (!hyAM.ga_sidsct) {
+      	var cookies = document.cookie.split("; ");
+        for(var i=0; i < cookies.length; i++) {
+          var c = cookies[i].split("=");
+          if (c[0] && c[0].indexOf("_ga_") > -1 && c[0].length > 10) {
+            hyAM.ga_sidsct = c[0];
+          }
+        }
+      }
+      
+      var ga4SidSct = hyAM.ga_sidsct ? this.getCookie(hyAM.ga_sidsct) : "";
+      if (ga4SidSct) {
+        var arr = ga4SidSct.split(".");
+        hyAM._ds.in_mid = hyAM.ga_sidsct.replace("_ga_", "G-");
+        hyAM._ds.in_sid = arr[2];
+        hyAM._ds.in_sct = arr[3];
+      }
+      
+      return this.getCookie("_ga").split('.').slice(-2).join(".");
+      
+    } catch(ex) {
+      return "unknown";
+    }
+  },
+  
+  clidTypeParam: function() {
+    var results = /[\?&]([\w]*clk?id)=([^&#]*)/.exec(location.search)
+    return results === null ? '' : results[1];
+  },
+
+  clidValueParam: function() {
+    var results = /[\?&]([\w]*clk?id)=([^&#]*)/.exec(location.search)
+    return results === null ? '' : decodeURIComponent(results[2].replace(/\+/g, ' '));
+  },
+  
+  utmMediumParam: function() {
+    return this.getUrlParam("utm_medium");
+  },
+
+  utmSourceParam: function() {
+    return this.getUrlParam("utm_source");
+  },
+  
+  utmCampaignParam: function() {
+    return this.getUrlParam("utm_campaign");
+  },
+
+  utmTermParam: function() {
+    return this.getUrlParam("utm_term");
+  },
+  
+  utmContentParam: function() {
+    return this.getUrlParam("utm_content");
+  },
+  
+  utmHylyMethodParam: function() {
+    return this.getUrlParam("hyly_method") || this.getUrlParam("utm_hyly_method");
+  },
+  
+  utmHylyAssistParam: function() {
+    return this.getUrlParam("hyly_assist");
+  },
+  
+  ssidParam: function() {
+    return this.getUrlParam("hyly_ssid") || this.getUrlParam("ssid");
+  },
+  
+  getUrlParam: function(name, search) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(search || location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+  },
+  
+  /* helpers: cookies */
+  setupInitialSourceTraffic: function() {
+    var referrer = document.referrer;
+    var gaReferral = {
+      'utmcsr': 'Property Website',
+      'utmcmd': '(none)',
+      'utmccn': '(not set)'
+    };
+  	var thisHostname = document.location.hostname;
+    var thisDomain = this.getDomain(thisHostname);
+    var referringDomain = this.getDomain(document.referrer);
+  	var sessionCookie = this.getCookie('__utmzzseshyly');
+    var cookieExpiration = new Date(+new Date() + 1000 * 60 * 60 * 24 * 365);
+  	var qs = document.location.search.replace('?', '');
+  	var hash = document.location.hash.replace('#', '');
+    var gaParams = this.parseGoogleParams(qs + '#' + hash);
+    var referringInfo = this.parseGaReferrer(referrer, thisDomain, referringDomain);
+    var storedVals = this.getCookie('__utmzhyly') || this.getCookie('__utmzzhyly');
+    var newCookieVals = [];
+    var keyMap = {
+      'utm_source': 'utmcsr',
+      'utm_medium': 'utmcmd',
+      'utm_campaign': 'utmccn',
+      'utm_content': 'utmcct',
+      'utm_term': 'utmctr',
+      'gclid': 'utmgclid',
+      'dclid': 'utmdclid'
+    };
+
+    var keyFilter = ['utmcsr', 'utmcmd', 'utmccn', 'utmcct', 'utmctr'];
+    var keyName,
+      values,
+      _val,
+      _key,
+      raw,
+      key,
+      len,
+      i;
+
+    if (sessionCookie && referringDomain === thisDomain) {
+      gaParams = null;
+      referringInfo = null;
+    }
+
+    if (gaParams && (gaParams.utm_source || gaParams.gclid || gaParams.dclid)) {
+      for (key in gaParams) {
+        if (typeof gaParams[key] !== 'undefined') {
+          keyName = keyMap[key];
+          gaReferral[keyName] = gaParams[key];
+        }
+      }
+
+      if (gaParams.gclid || gaParams.dclid) {
+        gaReferral.utmcsr = 'google-default';
+        gaReferral.utmcmd = gaReferral.utmgclid ? 'cpc' : 'cpm';
+      }
+
+    } else if (referringInfo) {
+      gaReferral.utmcsr = referringInfo.source;
+      gaReferral.utmcmd = referringInfo.medium;
+      if (referringInfo.term) gaReferral.utmctr = referringInfo.term;
+
+    } else if (storedVals) {
+      values = {};
+      raw = storedVals.split('|');
+      len = raw.length;
+
+      for (i = 0; i < len; i++) {
+        _val = raw[i].split('=');
+        _key = _val[0].split('.').pop();
+        values[_key] = _val[1];
+      }
+
+      gaReferral = values;
+    }
+
+    for (key in gaReferral) {
+      if (typeof gaReferral[key] !== 'undefined' && keyFilter.indexOf(key) >-1) {
+        newCookieVals.push(key + '=' + gaReferral[key]);
+      }
+    }
+
+    if (!this.getCookie('hyly_initial_traffic_source')) {
+      this.writeCookie('hyly_initial_traffic_source', newCookieVals.join('|'), cookieExpiration);
+    }
+
+    this.writeCookie('__utmzzseshyly', 1, null);
+  },
+  
+  setupCookieReplicator: function() {
+    var referrer = document.referrer;
+    var gaReferral = {
+      'utmcsr': 'Direct',
+      'utmcmd': 'Direct',
+      'utmcct': 'N/A',
+      'utmctr': 'N/A',
+      'utmccn': 'N/A',
+      'utmgclid':'N/A'
+    };
+  	var thisHostname = document.location.hostname;
+    var thisDomain = this.getDomain(thisHostname);
+    var referringDomain = this.getDomain(document.referrer);
+  	var sessionCookie = this.getCookie('__utmzzses');
+    var cookieExpiration = new Date(+new Date() + 1000 * 60 * 60 * 24 * 365);
+  	var qs = document.location.search.replace('?', '');
+  	var hash = document.location.hash.replace('#', '');
+    var gaParams = this.parseGoogleParams(qs + '#' + hash);
+    var referringInfo = this.parseGaReferrer(referrer, thisDomain, referringDomain);
+    var storedVals = this.getCookie('__utmz') || this.getCookie('__utmzz');
+    var newCookieVals = [];
+    var keyMap = {
+      'utm_source': 'utmcsr',
+      'utm_medium': 'utmcmd',
+      'utm_campaign': 'utmccn',
+      'utm_content': 'utmcct',
+      'utm_term': 'utmctr',
+      'gclid': 'utmgclid',
+      'dclid': 'utmdclid'
+    };
+    var keyName,
+      values,
+      _val,
+      _key,
+      raw,
+      key,
+      len,
+      i;
+
+    if (sessionCookie && referringDomain === thisDomain) {
+      gaParams = null;
+      referringInfo = null;
+    }
+
+    if (gaParams && (gaParams.utm_source || gaParams.gclid || gaParams.dclid)) {
+      for (key in gaParams) {
+        if (typeof gaParams[key] !== 'undefined') {
+          keyName = keyMap[key];
+          gaReferral[keyName] = gaParams[key];
+        }
+      }
+
+      if (gaParams.gclid || gaParams.dclid) {
+        gaReferral.utmcsr = 'google-default';
+        gaReferral.utmcmd = gaReferral.utmgclid ? 'CPC' : 'cpm';
+      }
+
+    } else if (referringInfo) {
+      gaReferral.utmcsr = referringInfo.source;
+      gaReferral.utmcmd = referringInfo.medium;
+      if (referringInfo.term) gaReferral.utmctr = referringInfo.term;
+
+    } else if (storedVals) {
+      values = {};
+      raw = storedVals.split('|');
+      len = raw.length;
+
+      for (i = 0; i < len; i++) {
+        _val = raw[i].split('=');
+        _key = _val[0].split('.').pop();
+        values[_key] = _val[1];
+      }
+    
+      gaReferral = values;
+    }
+
+    for (key in gaReferral) {
+      if (typeof gaReferral[key] !== 'undefined') {
+        newCookieVals.push(key + '=' + gaReferral[key]);
+      }
+    }
+
+    this.writeCookie('__utmzz', newCookieVals.join('|'), cookieExpiration);
+    this.writeCookie('__utmzzses', 1, null);
+  },
+  
+  setupReferralUrl: function() {
+    var referrer = document.referrer;
+    var gaReferral = {
+      'utmcsr': 'N/A'
+    };
+    var thisHostname = document.location.hostname;
+    var thisDomain = this.getDomain(thisHostname);
+    var referringDomain = this.getDomain(document.referrer);
+    var sessionCookie = this.getCookie('__hylyutmzzses');
+    var cookieExpiration = new Date(+new Date() + 1000 * 60 * 60 * 24 * 365);
+    var qs = document.location.search.replace('?', '');
+    var hash = document.location.hash.replace('#', '');
+    var gaParams = this.parseGoogleParams(qs + '#' + hash, ["source"]);
+    var referringInfo = this.parseGaReferrer(referrer, thisDomain, referringDomain, true);
+    var storedVals = this.getCookie('__hylyutmz') || this.getCookie('__hylyutmzz');
+    var newCookieVals = [];
+    var keyMap = {
+      'utm_source': 'utmcsr'
+    };
+    var keyName,
+    values,
+    _val,
+    _key,
+    raw,
+    key,
+    len,
+    i;
+
+    if (sessionCookie && referringDomain === thisDomain) {
+      gaParams = null;
+      referringInfo = null;
+    }
+    if (referringInfo) {
+      gaReferral.utmcsr = referringInfo.source;
+      gaReferral.utmcmd = referringInfo.medium;
+      if (referringInfo.term) gaReferral.utmctr = referringInfo.term;
+
+    } else if (storedVals) {
+      values = {};
+      raw = storedVals.split('|');
+      len = raw.length;
+
+      for (i = 0; i < len; i++) {
+        _val = raw[i].split('=');
+        _key = _val[0].split('.').pop();
+        values[_key] = _val[1];
+      }
+
+      gaReferral = values;
+    }
+
+    for (key in gaReferral) {
+      if (typeof gaReferral[key] !== 'undefined') {
+        newCookieVals.push(key + '=' + gaReferral[key]);
+      }
+    }
+
+    this.writeCookie('__hylyutmzz', newCookieVals.join('|'), cookieExpiration);
+    this.writeCookie('__hylyutmzzses', 1, null);
+  },
+  
+  getCookie: function(name){
+  	var cookies = '; ' + document.cookie
+  	var cvals = cookies.split('; ' + name + '=');
+  	if (cvals.length > 1) return cvals.pop().split(';')[0];
+  },
+
+  writeCookie: function(name, value, expiration) {
+    var str = name + '=' + value + ';Path=/;Domain=' + this.getDomain(document.location.hostname) + ';';
+    if (expiration) str += 'Expires=' + expiration.toGMTString() + ';';
+    
+    if (window.hyBeaconCookies !== false) {
+      document.cookie = str;
+    }
+  },
+  
+  getDomain: function(url) {
+    if (!url) return;
+
+    var a = document.createElement('a');
+    a.href = url;
+    try {
+      return a.hostname.match(/[^.]*\.[^.]{2,3}(?:\.[^.]{2,3})?$/)[0];
+    } catch(ex) {
+      var regex = /^(?:https?:\/\/)?(?:www\.)?([^\/]+)/,
+        matches = url.match(regex);
+      return matches ? matches[1] : null;
+    }
+  },
+  
+  extractSrcCookie: function() {
+    var src = this.splitSrc(this.getCookie("hyly_src"));
+  
+    // split src value in to respective objects
+    if(src.length<3){
+      return {
+       method : src[0],
+       source : src[1]
+      }
+ 
+    }else{
+      return {
+       method : src[0],
+       source : src[1],
+       campaign: src[2]
+      }
+    }
+  },
+  
+  extractUtmzzCookie: function() {
+    var cookie = this.getCookie("__utmzz");
+    if (!cookie) return {};
+
+    var parts = cookie.split('|');
+    var dict = {
+    	utmcsr: 'source',
+      utmcmd: 'medium',
+      utmccn: 'campaign',
+      utmcct: 'content',
+      utmctr: 'keyword',
+      utmgclid: 'gclid'
+
+    };
+    var output = {};
+    var part;
+    var key;
+    var val;
+    var i;
+
+    for (i = 0; i < parts.length; i++) {
+      part = parts[i].split('=');
+      key = part[0];
+      val = part[1];
+    
+      output[dict[key]] = val;
+    }
+
+    return output;
+  },
+  
+  extractHylyutmzzCookie: function() {
+    var cookie =  this.getCookie("__hylyutmzz");
+    if (!cookie) return {};
+
+    var parts = cookie.split('|');
+    var dict = {
+    	utmcsr: 'External_Domain'
+    };
+    var output = {};
+    var part;
+    var key;
+    var val;
+    var i;
+
+    for (i = 0; i < parts.length; i++) {
+      part = parts[i].split('=');
+      key = part[0];
+      val = part[1];
+      
+      output[dict[key]] = val;
+    }
+
+    return output;
+  },
+  
+  extractInitialTrafficSourceCookie: function() {
+    var cookie = this.getCookie("hyly_initial_traffic_source");
+    if (!cookie) return {};
+
+    var parts = cookie.split('|');
+    var dict = {
+    	utmcsr: 'hyly_cookie_src'
+    };
+    var output = {};
+    var part;
+    var key;
+    var val;
+    var i;
+
+    for (i = 0; i < parts.length; i++) {
+      part = parts[i].split('=');
+      key = part[0];
+      val = part[1];
+    
+      output[dict[key]] = val;
+    }
+
+    return output;
+  },
+  
+  parseGoogleParams: function(str, campaignParams) {
+    campaignParams = campaignParams || ['source', 'medium', 'campaign', 'term', 'content'];
+    
+    var regex = new RegExp('(utm_(' + campaignParams.join('|') + ')|(d|g)clid)=.*?([^&#]*|$)', 'gi');
+    var gaParams = str.match(regex);
+    var paramsObj,
+      vals,
+      len,
+      i;
+
+    if (gaParams) {
+      paramsObj = {};
+      len = gaParams.length;
+
+      for (i = 0; i < len; i++) {
+        vals = gaParams[i].split('=');
+      
+        if (vals) {
+          paramsObj[vals[0]] = vals[1];
+        }
+      }
+    }
+
+    return paramsObj;
+  },
+  
+  parseGaReferrer: function(referrer, thisDomain, referringDomain, referralOnly) {
+    if (!referrer) return;
+    
+    if (referralOnly) {
+      var a = document.createElement('a');
+      var values = {};
+  
+      a.href = referrer;
+  
+      if (referringDomain !== thisDomain) {
+        values.source = a.hostname;
+        values.medium = 'Referral';
+      }
+
+      return values;
+    }
+    
+    var searchEngines = {
+      'daum.net': {
+        'p': 'q',
+        'n': 'daum'
+      },
+      'eniro.se': {
+        'p': 'search_word',
+        'n': 'eniro '
+      },
+      'naver.com': {
+        'p': 'query',
+        'n': 'naver '
+      },
+      'yahoo.com': {
+        'p': 'p',
+        'n': 'Yahoo'
+      },
+      'msn.com': {
+        'p': 'q',
+        'n': 'msn'
+      },
+      'bing.com': {
+        'p': 'q',
+        'n': 'Bing'
+      },
+      'aol.com': {
+        'p': 'q',
+        'n': 'aol'
+      },
+      'lycos.com': {
+        'p': 'q',
+        'n': 'lycos'
+      },
+      'ask.com': {
+        'p': 'q',
+        'n': 'ask'
+      },
+      'altavista.com': {
+        'p': 'q',
+        'n': 'altavista'
+      },
+      'search.netscape.com': {
+        'p': 'query',
+        'n': 'netscape'
+      },
+      'cnn.com': {
+        'p': 'query',
+        'n': 'cnn'
+      },
+      'about.com': {
+        'p': 'terms',
+        'n': 'about'
+      },
+      'mamma.com': {
+        'p': 'query',
+        'n': 'mama'
+      },
+      'alltheweb.com': {
+        'p': 'q',
+        'n': 'alltheweb'
+      },
+      'voila.fr': {
+        'p': 'rdata',
+        'n': 'voila'
+      },
+      'search.virgilio.it': {
+        'p': 'qs',
+        'n': 'virgilio'
+      },
+      'baidu.com': {
+        'p': 'wd',
+        'n': 'baidu'
+      },
+      'alice.com': {
+        'p': 'qs',
+        'n': 'alice'
+      },
+      'yandex.com': {
+        'p': 'text',
+        'n': 'yandex'
+      },
+      'najdi.org.mk': {
+        'p': 'q',
+        'n': 'najdi'
+      },
+      'seznam.cz': {
+        'p': 'q',
+        'n': 'seznam'
+      },
+      'search.com': {
+        'p': 'q',
+        'n': 'search'
+      },
+      'wp.pl': {
+        'p': 'szukaj ',
+        'n': 'wirtulana polska'
+      },
+      'online.onetcenter.org': {
+        'p': 'qt',
+        'n': 'o*net'
+      },
+      'szukacz.pl': {
+        'p': 'q',
+        'n': 'szukacz'
+      },
+      'yam.com': {
+        'p': 'k',
+        'n': 'yam'
+      },
+      'pchome.com': {
+        'p': 'q',
+        'n': 'pchome'
+      },
+      'kvasir.no': {
+        'p': 'q',
+        'n': 'kvasir'
+      },
+      'sesam.no': {
+        'p': 'q',
+        'n': 'sesam'
+      },
+      'ozu.es': {
+        'p': 'q',
+        'n': 'ozu '
+      },
+      'terra.com': {
+        'p': 'query',
+        'n': 'terra'
+      },
+      'mynet.com': {
+        'p': 'q',
+        'n': 'mynet'
+      },
+      'ekolay.net': {
+        'p': 'q',
+        'n': 'ekolay'
+      },
+      'rambler.ru': {
+        'p': 'words',
+        'n': 'rambler'
+      },
+      'google': {
+        'p': 'q',
+        'n': 'Google'
+      }
+    };
+    var a = document.createElement('a');
+    var values = {};
+    var searchEngine,
+      termRegex,
+      term;
+
+    a.href = referrer;
+
+    // Shim for the billion google search engines
+    if (a.hostname.indexOf('google') > -1) {
+      referringDomain = 'google';
+    }
+
+    if (searchEngines[referringDomain]) {
+      searchEngine = searchEngines[referringDomain];
+      termRegex = new RegExp(searchEngine.p + '=.*?([^&#]*|$)', 'gi');
+      term = a.search.match(termRegex);
+
+      values.source = searchEngine.n;
+      values.medium = 'Organic';
+      values.term = (term ? term[0].split('=')[1] : '') || 'N/A';
+
+    } else if (referringDomain !== thisDomain) {
+      values.source = a.hostname;
+      values.medium = 'Referral';
+
+    }
+
+    return values;
+  },
+  
+  /* helpers: misc */
+  log: function(){
+    if(this.config.debug) {
+      console.log.apply(console, arguments);
+    }
+  },
+  
+  splitSrc: function(str) {
+    return str ? str.split(/\.(?=(?!com|org|net|us|ly|info))/) : [];
+  },
+  
+  /* GTM logic */
+  pushToDataLayer: function (h) {
+    window.dataLayer = window.dataLayer || [];
+    dataLayer.push(h);
+  },
+  
+  getBeaconVariables: function(){
+    var mediumName = this.extractUtmzzCookie().medium;
+    
+    if (mediumName == 'Organic'){
+      // raise mismatch tag if method is not web, medium not Organic
+      this.lookup('&in_referer_url='+this.extractHylyutmzzCookie().External_Domain, function(response){
+        if (response.hybeacon_method_tag && response.hybeacon_source_tag) {
+          hyAM._ds.hybeacon_cookie_value = response.hybeacon_method_tag+'.'+response.hybeacon_source_tag; 
+        }
+        
+        if (mediumName != response.hybeacon_medium_name){
+          hyAM.reportError({
+            error_type: "mismatched_tag",
+            error_details: 'Medium name defined in hyBeacon ('+ response.hybeacon_medium_name +') does not match "'+ mediumName +'"',
+            note: ""
+          });
+        }
+      });
+      
+      return;
+    }
+  
+    /*
+    Case B when no src in URL But UTM variables are in URL.
+    get src variable from utm source . based on src call hyBeacon API for table lookups
+    */
+  
+    if(this.getCookie("hyly_utm_source")){   
+      var utm_source = this.getCookie("hyly_utm_source"),
+        params = '&in_utm_source=' + utm_source,
+        referrerUrl = this.extractHylyutmzzCookie().External_Domain;
+
+      if (referrerUrl && referrerUrl != "N/A") {
+        params += '&in_referer_url=' + referrerUrl;
+      }
+      
+      this.lookup(params, function(response){
+        if (response.hybeacon_method_tag && response.hybeacon_source_tag) {
+          hyAM._ds.hybeacon_cookie_value = response.hybeacon_method_tag+'.'+response.hybeacon_source_tag; 
+        }
+      });
+      return;
+    }
+    
+    /*
+    Case A when src (method.source.campaign) is in URL
+    based on these tags API call is done to hyBeacon for table lookups
+    */
+  
+    if(this.getCookie("hyly_src")){
+      this.lookup('&in_url_param_src='+this.getCookie("hyly_src"));
+      return;
+    }
+  
+
+    /*
+    Case C when no src and no UTM is present. src=method.source.campaign
+    get src from referral and call the hyBeacon API for Table lookup
+    */
+   
+    if (mediumName === 'Referral'){
+      this.lookup('&in_referer_url='+this.extractHylyutmzzCookie().External_Domain, function(response){
+        if (response.hybeacon_method_tag && response.hybeacon_source_tag) {
+          hyAM._ds.hybeacon_cookie_value = response.hybeacon_method_tag+'.'+response.hybeacon_source_tag; 
+        }
+        
+        if (hyAM.extractUtmzzCookie().source && (!hyAM._ds.in_utm_source || !hyAM._ds.in_utm_medium)){
+          hyAM.reportError({
+            error_type: "mismatched_tag",
+            error_details: 'No UTM is configured for referral link from '+hyAM.extractUtmzzCookie().source,
+            note: "Client needs to add UTM_XXX variables with referral from "+hyAM.extractUtmzzCookie().source
+          });
+        }
+      });
+      
+      return;
+    }
+   
+    if(mediumName === 'CPC'){
+      // raise mismatch tag if method is not web, medium not CPC
+      this.lookup('&in_url_param_src=w.' + this.extractUtmzzCookie().source, function(response){
+        if (response.hybeacon_method_tag && response.hybeacon_source_tag) {
+          hyAM._ds.hybeacon_cookie_value = response.hybeacon_method_tag+'.'+response.hybeacon_source_tag; 
+        }
+        
+        if (mediumName != response.hybeacon_medium_name){
+          hyAM.reportError({
+            error_type: "mismatched_tag",
+            error_details: 'Medium name defined in hyBeacon ('+ response.hybeacon_medium_name +') does not match "'+ mediumName +'"',
+            note: ""
+          });
+        }
+      });
+      
+      return;
+    }
+
+    if(this.extractUtmzzCookie().source === 'Direct'){
+      // Fetch default method/source/medium/channel from api
+      // don't default to w.pws, direct traffic
+      this.lookup("", function(response){
+        if (response.hybeacon_method_tag && response.hybeacon_source_tag) {
+          hyAM._ds.hybeacon_cookie_value = response.hybeacon_method_tag+'.'+response.hybeacon_source_tag;
+        }
+      });
+      
+      return;
+    }
+  },
+  
+  getChannel: function(){
+    if(!this._ds.hybeacon_channel_tag && !this._ds.in_url_param_channel){
+      this.log("Set channel to: Prospect");
+      
+      this._ds.hybeacon_channel_tag = 'pr';
+      this._ds.hybeacon_channel_name = 'Prospect';
+  
+    } else if (this._ds.hybeacon_channel_tag && !this.fetchedChannel) {
+      this.lookup('&in_url_param_channel='+this._ds.hybeacon_channel_tag);
+    }
+  },
+  
+  /* REST API */
+  requestOptions: function() {
+    var myHeaders = new Headers();
+    myHeaders.append("X-Api-Key", this.publicApiKey);
+    
+    return {
+      method: 'POST',
+      headers: myHeaders,
+      redirect: 'follow',  
+    };
+  },
+  
+  lookup: function(params, cb) {
+    var ins = [
+      "in_utm_source",
+      "in_utm_medium",
+      "in_utm_campaign",
+      "in_utm_term",
+      "in_utm_content",
+      "in_hyly_method",
+      "in_hyly_assist",
+      "in_clid_type",
+      "in_clid_value"
+    ]
+    
+    if (!params) params = "";
+    
+    if (this._ds.hybeacon_channel_tag) {
+      params += '&in_url_param_channel='+this._ds.hybeacon_channel_tag;
+      this.fetchedChannel = true; // avoid unnecessary request
+    }
+    
+    for (i = 0, len = ins.length; i < len; i++) {
+      if (this._ds[ins[i]] && params.indexOf("&" + ins[i] + "=") == -1) {
+        params += "&" + ins[i] + "=" + this._ds[ins[i]];
+      }
+    }
+    
+    // second page: read method.source from cookie if no param utm_source or src or referral
+    if (!this._ds.in_utm_source && !this._ds.in_url_param_src && this._ds.hybeacon_referrer_url == "N/A" && this._ds.hybeacon_cookie_value) {
+      if (!this.getCookie("hyly_src")) {
+        params += '&hybeacon_cookie_value='+this._ds.hybeacon_cookie_value;
+      }
+    }
+
+    // legacy
+    if (this._ds.in_clid_value) {
+      this._ds["in_" + this._ds.in_clid_type] = this._ds.in_clid_value;
+      params += '&in_'+this._ds.in_clid_type+'='+this._ds.in_clid_value;
+    }
+    
+    params += "&ssid=" + this._ds.ssid + "&container_id=" + encodeURIComponent(this.getContainerId());
+    
+    fetch(this.translateURL + params, this.requestOptions())
+    .then(function(response){
+      return response.text();
+      
+    }).then(function(data){
+      var response = JSON.parse(data),
+        keys = [
+          "hybeacon_method_tag", "hybeacon_method_name",
+          "hybeacon_source_tag", "hybeacon_source_tag_alt", "hybeacon_source_name",
+          "hybeacon_campaign_tag", "hybeacon_campaign_name",
+          "hybeacon_medium_tag", "hybeacon_medium_name",
+          "hybeacon_content_tag", "hybeacon_content_name",
+          "hybeacon_term",
+          "hybeacon_assist_tag", "hybeacon_assist_name",
+          "hybeacon_channel_tag", "hybeacon_channel_name",
+          "phone_number", "replace_option", "replace_number", "replace_switch_id",
+          "pid"
+        ];
+        
+      hyAM.log("Lookup API response:", response);
+      
+      hyAM._ds.ssid = response.ssid;
+      hyAM.listener = response.listener;
+      hyAM.field_selector = response.field_selector;
+      hyAM.ga_sidsct = response.ga_sidsct;
+      
+      window.hyContact = response.hybeacon_contact;
+      
+      // catch phone links generated on the fly
+      setInterval(function(){
+        hyAM.getTealId();
+        hyAM.listenToForms();
+        hyAM.setPhoneNumber();
+        hyAM.sendSsid();
+      }, 2000);
+      
+      // set if ds is blank and api value is not blank
+      for (i = 0, len = keys.length; i < len; i++) {
+        if (response[keys[i]]) {
+          hyAM._ds[keys[i]] = response[keys[i]];
+        }
+      }
+      
+      if (response.errors) {
+        for (i = 0, len = response.errors.length; i < len; i++) {
+          hyAM.reportError({
+            error_type: response.errors[i].error_type,
+            error_details: response.errors[i].error_details
+          }); 
+        }
+      }
+      
+      hyAM.getTealId();
+      hyAM.listenToForms();
+      
+      // DNI
+      hyAM.setPhoneNumber();
+      
+      if (typeof(cb) == "function") cb(response);
+    })
+    .catch(function(error){
+      hyAM.log('API error:', error);
+    });
+  },
+  
+  logVisit: function(){
+    var visitTimer = setInterval(function() {
+      hyAM.log("Logging extension data:", hyAM._ds);
+      // only send when tags are translated
+      if (hyAM._ds.hybeacon_source_name) {
+        if (typeof(hyBot) == "object") {
+          hyAM._ds.Warning.push('Both hyBeacon and GTM are present. Please remove the '+
+            '<a href="https://drive.google.com/file/d/1NlQeGDoOKH4U0dYs_QC9x-6O6goKXwE2/view?usp=drivesdk" target="_blank">hyBeacon master script</a>');
+        }
+        
+        if (hyAM._ds.in_url_param_src) {
+          hyAM._ds.Warning.push("You are using legacy hyBeacon parameter <b>src</b>. This will be deprecated soon." + 
+            " Please substitute standard UTM parameters. You can generate these on hyBeacon > Link Generator.");
+        }
+    
+        var extData = { type: "FROM_PAGE", datalayer: JSON.parse(JSON.stringify(hyAM._ds)) }
+        // show cookies on assistant, don't send to backend
+        try {
+          extData.datalayer.ga_cookies = [];
+          var pairs = document.cookie.split(";");
+          for (var i=0; i<pairs.length; i++){
+            var pair = pairs[i].split("=");
+            extData.datalayer.ga_cookies.push({name: (pair[0]+'').trim(), value: unescape(pair.slice(1).join('='))});
+          }
+        } catch (ex) {}
+    
+        window.postMessage(extData, "*");
+    
+        if (hyAM._ds.ssid) {
+          hyAM._ds.in_cid = hyAM.gaCid();
+          hyAM.listenToFields();
+          
+          fetch(hyAM.visitsURL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              "X-Api-Key": hyAM.publicApiKey
+            },
+            redirect: 'follow',
+            body: JSON.stringify(hyAM._ds)
+          })
+          .then(function(response){
+            return response.text();
+            
+          }).then(function(data){
+            hyAM.log("Data was sent to Hy.ly successfully:", data);
+            
+          }).catch(function(e){
+            hyAM.log("Logging failed:", e);
+          });
+        }
+        
+        clearInterval(visitTimer);
+        
+      } else if (hyAM.retriesCount == 2) {
+        // fetch default tags
+        hyAM.lookup("&fallback=1", function(response){
+          if (response.hybeacon_method_tag && response.hybeacon_source_tag) {
+            hyAM._ds.hybeacon_cookie_value = response.hybeacon_method_tag+'.'+response.hybeacon_source_tag;
+          }
+        });
+      }
+      
+      hyAM.retriesCount += 1;
+    }, 3000);
+  },
+  
+  logEvent: function(eventHash) {
+    if (!hyAM.ga_sidsct) {
+      //ga4 property not mapped
+      hyAM.uploadEvent(eventHash);
+      
+    } else if (this._ds && this._ds.in_sid) {
+      hyAM.uploadEvent(eventHash);
+      
+    } else {
+      setTimeout(function(){
+        hyAM.log("Wait for sid...");
+        hyAM.uploadEvent(eventHash);
+      }, 5000);
+    }
+  },
+  
+  uploadEvent: function(eventHash) {
+    if (!this._ds) {
+      hyAM.log("_ds not found")
+      return false;
+    }
+    
+    var options = this.requestOptions();
+    
+    eventHash.property_id = this._ds.pid;
+    eventHash.client_id = this._ds.in_cid;
+    eventHash.timestamp_micros = Date.now() * 1000;
+    eventHash.event_params.w_session_id = this._ds.in_sid;
+    eventHash.event_params.w_session_number = this._ds.in_sct;
+    eventHash.event_params.w_page_location = this._ds.in_page_url;
+
+    if (this._ds.hybeacon_source_name) eventHash.event_params.source = this._ds.hybeacon_source_name;
+    if (this._ds.hybeacon_medium_name) eventHash.event_params.medium = this._ds.hybeacon_medium_name;
+    
+    options.body = JSON.stringify(eventHash);
+    
+    fetch(this.uploadEventURL, options)
+    .then(function(response){
+      return response.text();
+      
+    }).then(function(data){
+      hyAM.log("Event uploaded:", eventHash)
+      
+    }).catch(function(e){
+      hyAM.log("Error upload failed:", e);
+    });
+    
+    // track h_page_type for later use
+    this.currentPageType = eventHash.event_params.h_page_type || "contact";
+  },
+  
+  reportError: function(errorHash) {
+    this.log('Reporting error:', errorHash);
+    
+    // add more info
+    errorHash.in_page_url = this._ds.in_page_url;
+    errorHash.in_referer_url = this.extractHylyutmzzCookie().External_Domain;
+    errorHash.in_utm_source = this._ds.in_utm_source;
+    errorHash.in_utm_medium = this._ds.in_utm_medium;
+    errorHash.in_utm_campaign = this._ds.in_utm_campaign;
+    errorHash.in_utm_content = this._ds.in_utm_content;
+    errorHash.in_hyly_method = this._ds.in_hyly_method;
+    errorHash.in_hyly_assist = this._ds.in_hyly_assist;
+    errorHash.in_utm_term = this._ds.in_utm_term;
+    errorHash.in_url_param_src = this.getCookie("hyly_src");
+    errorHash.in_url_param_channel = this._ds.hybeacon_channel_tag;
+    errorHash.container_id = this.getContainerId();
+    
+    // share with assistant
+    this._ds.Error.push(errorHash.error_details);
+    this._ds.ErrorWithType.push({
+      error_type: errorHash.error_type,
+      error_details: errorHash.error_details
+    });
+    
+    // turn on when needed
+    return false;
+    
+    var options = this.requestOptions();
+    options.body = JSON.stringify(errorHash);
+    
+    fetch(this.reportErrorURL, options)
+    .then(function(response){
+      return response.text();
+      
+    }).then(function(data){
+      hyAM.log("Error Report sent:", data)
+      
+    }).catch(function(e){
+      hyAM.log("Error Report failed:", e);
+    });
+  },
+  
+  // event tracking: listen for message, add to dataLayer
+  setupEventListener: function () {
+    var eventMethod = window.addEventListener ? "addEventListener" : "attachEvent",
+      eventer = window[eventMethod],
+      messageEvent = eventMethod == "attachEvent" ? "onmessage" : "message";
+    
+    eventer(messageEvent, function(e) {
+      try {
+        var eventHash = JSON.parse(e.message || e.data); // eventHash was stringified
+      } catch(ex) {
+        var eventHash = {}; // ignore extension or unknown event
+      }
+      
+      if (eventHash.ssid) {
+        hyAM._ds.ssid = eventHash.ssid;
+        hyAM.writeCookie("hyly_ssid", hyAM._ds.ssid, new Date(+new Date() + 1000 * 60 * 60 * 24 * 30));
+        hyAM.getContainerId();
+        hyAM.log("ssid:", hyAM._ds.ssid);
+        hyAM.sendSsid();
+        // call when the ssid is generated
+        hyAM.getBeaconVariables();
+        hyAM.getChannel();
+        hyAM.logVisit();
+      } else if (eventHash.event_name) {
+        hyAM.logEvent(eventHash);
+      }
+    }, false);
+  },
+  
+  getSsid: function() {
+    var ifrm = document.createElement("iframe"),
+      src = "https://"+ this.host +"/chat/ssid?page_url=" + encodeURIComponent(location.protocol + "//" + location.hostname);
+    
+    // maintain ssid across domains
+    if (hyAM._ds.ssid) { src += "&ssid=" +  hyAM._ds.ssid; }
+    
+    ifrm.setAttribute("src", src);
+    ifrm.setAttribute("style", "width:1px; height:1px; visibility: hidden;");
+    
+    var ssidTimer = setInterval(function() {
+      if(document.body) {
+        document.body.appendChild(ifrm);
+        clearInterval(ssidTimer);
+      } 
+    }, 200);
+  },
+  
+  sendSsid: function () {
+    // send ssid to all Hyly iframe
+    var iframes = document.getElementsByTagName("iframe");
+    
+    for (var i = 0; i < iframes.length; i++) {
+      var f = iframes[i];
+      if (f.src && (f.src.indexOf("schedule.tours") > -1 || f.src.indexOf("hy.ly/") > -1 || f.src.indexOf("hyly.us/") > -1)) {
+        f.contentWindow.postMessage(JSON.stringify({ssid: hyAM._ds.ssid, teal_id: hyAM._ds.teal_id, from: "parent"}), '*');
+      }
+    }
+  },
+  
+  setPhoneNumber: function () {
+    var links = document.links;
+  
+    for(var i=0; i < links.length; i++) {
+      var l = links[i];
+    
+      if (l.href && l.href.toLowerCase().indexOf("tel:") > -1) {
+        var phone = hyAM._ds.phone_number,
+          originNumber = l.href.replace("tel:", ""),
+          replaceNumber = l.href.replace(/[^0-9]/gm, '');
+          
+        if (phone) {
+          if (hyAM._ds.replace_option == "all" || hyAM._ds.replace_option == "specific" && hyAM._ds.replace_number == ("+1" + replaceNumber)) {
+            l.href = "tel:" + (l.href.indexOf("+1") > -1 ? ("+1" + phone) : phone);
+            // replace phone if the html contains phone
+            var innerHTML = l.innerHTML, 
+              numbers = innerHTML.match(/\+?\(?\d*\)? ?\(?\d+\)?\d*([\s./-]?\d{2,})+/g),
+              numbersAlt = l.innerText.match(/\+?\(?\d*\)? ?\(?\d+\)?\d*([\s./-]?\d{2,})+/g),
+              phoneArr = phone.split("-");
+            
+            if (numbersAlt && numbers.length > 2 && numbersAlt.length == 1 && numbersAlt[0].length >= 6) { //SVG
+              numbers = numbersAlt;
+            }
+            
+            if (numbers && numbers.length > 0 && numbers.length <= 2) {
+              for(var n=0; n < numbers.length; n++) {
+                var num = numbers[n].trim(),
+                  numFormat = num.split(/\d+/).join("");
+                  
+                // format phone
+                if (phoneArr.length == 3) {
+                  if (numFormat == '() -') {
+                    phone = '('+ phoneArr[0] + ') '+ phoneArr[1] + '-' + phoneArr[2];
+                  } else if (numFormat == '()--') {
+                    phone = '('+ phoneArr[0] + ')-'+ phoneArr[1] + '-' + phoneArr[2];
+                  } else if (numFormat == '() .') {
+                    phone = '('+ phoneArr[0] + ') '+ phoneArr[1] + '.' + phoneArr[2];
+                  } else if (numFormat == '()..') {
+                    phone = '('+ phoneArr[0] + ').'+ phoneArr[1] + '.' + phoneArr[2]; 
+                  } else if (numFormat == '()  ') {
+                    phone = '('+ phoneArr[0] + ') '+ phoneArr[1] + ' ' + phoneArr[2];
+                  } else if (numFormat == '..') {
+                    phone = phoneArr[0] + '.'+ phoneArr[1] + '.' + phoneArr[2]; 
+                  }
+                }
+                
+                innerHTML = innerHTML.replace(num, phone);
+              }
+              
+              try { l.innerHTML = innerHTML; } catch (ex) {}
+            }
+            
+            if (hyAM._ds.original_phone_numbers.indexOf(originNumber) == -1 && phone.replace(/[^0-9]/gm, '') != replaceNumber) {
+              hyAM._ds.original_phone_numbers.push(originNumber);
+            }
+          }
+        }
+      } else if (l.href && l.href.indexOf("switch_cls") > -1 && hyAM._ds.replace_switch_id) {
+        // replace switch id
+        var pair = l.href.match(/switch_cls%5Bid%5D=(\d+)/) || l.href.match(/switch_cls\[id\]=(\d+)/);
+        if (pair[1]) {
+          l.href = l.href.replace(pair[0], pair[0].replace(pair[1], hyAM._ds.replace_switch_id));
+        }
+      } else if (l.href && (l.href.indexOf("schedule.tours") > -1 || l.href.indexOf("force.com/s/") > -1) && l.href.indexOf(location.hostname) == -1) {
+        if (hyAM._ds.teal_id && l.href.indexOf(hyAM._ds.teal_id) == -1) {
+          l.href = l.href + (l.href.indexOf("?") > -1 ? "&teal_id=" : "?teal_id=") + hyAM._ds.teal_id;
+        }
+        if (hyAM._ds.ssid && l.href.indexOf(hyAM._ds.ssid) == -1) {
+          l.href = l.href + (l.href.indexOf("?") > -1 ? "&ssid=" : "?ssid=") + hyAM._ds.ssid;
+        }
+      }
+    }
+  },
+  
+  getTealId: function(){
+    try{
+      this._ds.teal_id = hyAM.getCookie("TEAL").match(/^v\:[^\$]*\$/)[0].replace("v:", "").replace("$", "");
+    } catch(ex) { 
+      this._ds.teal_id = null;
+    }
+  },
+  
+  getContainerId: function(){
+    var scripts = document.scripts,
+      arr = [];
+
+    for(var i=0; i < scripts.length; i++) {
+      var l = scripts[i];
+      
+      if (l.src && l.src.toLowerCase().indexOf("googletagmanager.com/gtm.js?id=gtm-") > -1) {
+        arr.push(hyAM.getUrlParam("id", l.src));
+      }
+    }
+    
+    // get tracking id
+    try { hyAM._ds.ga_id = ga.getAll()[0].get('trackingId'); } catch (ex) {}
+    
+    hyAM._ds.container_id = arr.join(", ");
+    
+    return hyAM._ds.container_id;
+  },
+  
+  listenToForms: function(){
+    if (this.listener && (location.hostname.indexOf("schedule.tours") == -1 && location.hostname.indexOf("hy.ly") == -1 && location.hostname.indexOf("hyly.us") == -1)) {
+      this.formDict = this.formDict || {};
+      this.attachSubmit(document.getElementsByTagName('form'));
+      
+      try {
+        hyAM.attachSubmit(document.getElementById('perq-online-guided-shopping-hub').shadowRoot.querySelectorAll('form'));
+      } catch (ex) {}
+    }
+  },
+  
+  attachSubmit: function(forms) {
+    for (var i = 0; i < forms.length; i++) {
+      var f = forms[i],
+        handle = f.id || f.name || f.className || f.action;
+      
+      if (typeof(handle) == "object" && !f.className) {
+        handle = "cform-" + i;
+        f.classList.add(handle);
+        f.setAttribute('data-cform-id', handle);
+      }
+      if (!hyAM.formDict[handle] && typeof(handle) == "string" && handle.indexOf("hyform") == -1) {
+        f.addEventListener("submit", function(e) {
+          hyAM.captureSubmit(e.target)
+        });
+        
+        // also catch form's button click
+        if (f.id || f.className) {
+          if (f.id) {
+            var buttons = document.querySelectorAll("#" + f.id + " button, #" + f.id + " input[type='submit']");
+          } else {
+            var fcls = f.className.replace(/\s+/g, " ").trim().replace(/\s/g, ".");
+            var buttons = document.querySelectorAll("." + fcls + " button, ." + fcls + " input[type='submit']");
+          }
+          
+          for (var j = 0; j < buttons.length; j++) {
+            buttons[j].addEventListener("click", function(e) {
+              hyAM.captureSubmit(e.target.closest('form') || f);
+            });
+          }
+        }
+        
+        hyAM.formDict[handle] = f;
+      }
+    }
+  },
+  
+  listenToFields: function() {
+    var fs = this.field_selector;
+    
+    if (fs) {
+      if (this.pageMatch(fs.view_contact)) {
+        hyAM.logEvent({
+          "event_name": "h_click",
+        	"event_params": {
+            "h_page_type": "contact",
+            "h_clicked_location": "view contact",
+            "h_display_method": "embed",
+            "h_stream": "client"
+          }
+        });
+      }
+      if (this.pageMatch(fs.view_scheduler)) {
+        hyAM.logEvent({
+          "event_name": "h_click",
+        	"event_params": {
+            "h_page_type": "scheduler",
+            "h_clicked_location": "view scheduler",
+            "h_display_method": "embed",
+            "h_stream": "client"
+          }
+        });
+      }
+      
+      document.addEventListener('click', function (event) {
+        var t = event.target;
+        
+        if (hyAM.fieldMatch(t, fs.view_contact)) {
+          hyAM.logEvent({
+            "event_name": "h_click",
+          	"event_params": {
+              "h_page_type": "contact",
+              "h_clicked_location": "view contact",
+              "h_display_method": "embed",
+              "h_stream": "client"
+            }
+          });
+          
+        } else if (hyAM.fieldMatch(t, fs.view_scheduler)) {
+          hyAM.logEvent({
+            "event_name": "h_click",
+          	"event_params": {
+              "h_page_type": "scheduler",
+              "h_clicked_location": "view scheduler",
+              "h_display_method": "embed",
+              "h_stream": "client"
+            }
+          });
+        };
+      }, false);
+      
+      document.addEventListener('input', function (event) {
+        var t = event.target;
+        
+        if (hyAM.fieldMatch(t, fs.tour_type)) {
+          hyAM.logEvent({
+            "event_name": "h_click",
+          	"event_params": {
+              "h_page_type": "scheduler",
+              "h_clicked_location": "tour type",
+              "h_display_method": "embed",
+              "h_stream": "client",
+              "h_tour_type": t.value
+            }
+          });
+          
+        } else if (hyAM.fieldMatch(t, fs.tour_date)) {
+          hyAM.logEvent({
+            "event_name": "h_click",
+          	"event_params": {
+              "h_page_type": "scheduler",
+              "h_clicked_location": "tour date",
+              "h_display_method": "embed",
+              "h_stream": "client",
+              "h_start_date": t.value
+            }
+          });
+          
+        } else if (hyAM.fieldMatch(t, fs.tour_time)) {
+          hyAM.logEvent({
+            "event_name": "h_click",
+          	"event_params": {
+              "h_page_type": "scheduler",
+              "h_clicked_location": "tour time",
+              "h_display_method": "embed",
+              "h_stream": "client",
+              "h_start_time": t.value
+            }
+          });
+        
+        } else if (hyAM.fieldMatch(t, fs.bedroom)) {
+          hyAM.logEvent({
+            "event_name": "h_click",
+            "event_params": {
+              "h_page_type": "scheduler",
+              "h_clicked_location": "bedrooms",
+              "h_click_value": t.value,
+              "h_display_method": "embed",
+              "h_stream": "client"
+            },
+            "user_properties": {
+              "h_bedrooms": { "value": t.value }
+            }
+          });
+        } else if (hyAM.fieldMatch(t, fs.bedroom2)) {
+          hyAM.logEvent({
+            "event_name": "h_click",
+            "event_params": {
+              "h_page_type": "contact",
+              "h_clicked_location": "bedrooms",
+              "h_click_value": t.value,
+              "h_display_method": "embed",
+              "h_stream": "client"
+            },
+            "user_properties": {
+              "h_bedrooms": { "value": t.value }
+            }
+          });
+        };
+        
+        if (!hyAM.fillForm) {
+          // run once
+          hyAM.logEvent({
+            "event_name": "h_fill_forms",
+          	"event_params": {
+              "h_page_type": hyAM.currentPageType,
+              "h_stream": "client"
+            }
+          });
+          hyAM.fillForm = true;
+        }
+      }, false);
+    }
+  },
+  
+  pageMatch: function(p) {
+    return p ? p.indexOf("/") > -1 && location.href.indexOf(p) > -1 : false;
+  },
+  
+  fieldMatch: function(t, s) {
+    var match = false,
+      arr = (s || "").split(",");
+      
+    for(var i=0; i < arr.length; i++) {
+      if (!match) try{ match = t.matches(arr[i].trim()) } catch(ex) {};
+    }
+    return match;
+  },
+  
+  captureSubmit: function(f2) {
+    var handle = f2.id || f2.name || f2.className || f2.action,
+      params = {
+        pid: hyAM._ds.pid,
+        ssid: hyAM._ds.ssid,
+        form_values: {
+          page_url: hyAM.pageUrl(),
+          form_id: f2.getAttribute('data-cform-id') || f2.id,
+          form_name: f2.getAttribute('data-cform-id') || f2.name,
+          form_destination: f2.getAttribute('data-cform-id') || f2.action
+        },
+        hidden_fields: {},
+        placeholder_dict: {}
+      },
+      pwdField = {},
+      formData = new FormData(f2),
+      hasFormData = false;
+      
+    for (var j = 0; j < f2.elements.length; j++) {  
+      if (f2.elements[j].nodeName == "INPUT") {
+        if (f2.elements[j].type == "hidden") {
+          params.hidden_fields[f2.elements[j].name] = true;
+        } else if (f2.elements[j].type == "password") {
+          pwdField[f2.elements[j].name] = true;
+        }
+      }
+      if (f2.elements[j].placeholder && f2.elements[j].name) {
+        params.placeholder_dict[f2.elements[j].name] = f2.elements[j].placeholder;
+      }
+    }
+    
+    for (var p of formData) {
+      if (!pwdField[p[0]]){
+        params.form_values[p[0]] = p[1];
+        hasFormData = true;
+      }
+    }
+    
+    if (!hasFormData) { // for ShRoot forms
+      for (var j = 0; j < f2.elements.length; j++) {
+        var el = f2.elements[j],
+          label = el.previousSibling ? el.previousSibling.innerText : null;
+    
+        if (label && el.id) {
+          params.placeholder_dict[el.id] = label;
+    
+          if (el.nodeName == "INPUT" || el.nodeName == "TEXTAREA") {
+            if (el.type != "password") {
+              if (el.value) {
+                params.form_values[el.id] = el.value;
+              }
+            }
+          } else if (el.nodeName == 'SELECT') {
+            for (var z = 0; z < el.options.length; z++) {
+              if (el.options[z].selected) {
+                params.form_values[el.id] = el.options[z].innerText;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (params["ssid"] && !hyAM.formSubmitting) {
+      hyAM.formSubmitting = true;
+      setTimeout(function(){ hyAM.formSubmitting = false}, 2000);
+    
+      fetch(hyAM.formSubmitURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          "X-Api-Key": hyAM.publicApiKey
+        },
+        redirect: 'follow',
+        body: JSON.stringify(params)
+      })
+      .then(function(response){
+        return response.text();
+  
+      }).then(function(data){
+        hyAM.log("Data was sent to Hy.ly successfully");
+        
+        hyAM.logEvent({
+          "event_name": "h_click",
+        	"event_params": {
+            "h_page_type": hyAM.currentPageType,
+            "h_clicked_location": "submit button",
+            "h_display_method": "embed",
+            "h_stream": "client"
+          }
+        });
+        
+      }).catch(function(e){
+        hyAM.log("Logging failed:", e);
+      });
+    }
+  },
+  
+  // GTM template tag will pass the configuration like
+  // hyAM.init({env: 'dev', 'debug': true, ...});
+  init: function(data){
+    this.config = data || {};
+    
+    if (this.config.env == "production") {
+      this.host = "my.hy.ly";
+      
+    } else if (this.config.env == "stage") {
+      this.host = "my.hyly.us";
+    
+    } else if (this.config.env == "qa") {
+      this.host = "qa.hyly.us";
+      
+    } else {
+      this.host = "dev.hyly.us";
+    }
+    
+    this.translateURL = "https://" + this.host + "/api/v1/tags/translate?in_page_url=" + this.pageUrl();
+    this.visitsURL = "https://" + this.host + "/api/v1/visits";
+    this.formSubmitURL = "https://" + this.host + "/api/v1/form_submits";
+    this.reportErrorURL = "https://" + this.host + "/api/v1/tags/report_error";
+    this.uploadEventURL = "https://" + this.host + "/api/v1/properties/upload_event";
+    this.publicApiKey = "huTpHRi9k4KXxDUq86QBn0avgeGtLCFZyzNVA5lI"; // public
+    this.retriesCount = 0;
+    this.currentPageType = "contact";
+    
+    if (self!=top) {
+      // iframe
+    } else if (!this.initAt) {
+      this.log('GTM called hyAM.init with data:', data);
+    
+      // required "tags" fired in old GTM design
+      this.setupInitialSourceTraffic();
+      this.setupCookieReplicator();
+      this.setupReferralUrl();
+    
+      if (this.channelParam()) {
+        this.writeCookie("hyly_channel", this.channelParam());
+      }
+    
+      if (this.srcParam()) {
+        this.writeCookie("hyly_src", this.srcParam());
+      }
+    
+      if (this.utmSourceParam()) {
+        this.writeCookie("hyly_utm_source", this.utmSourceParam());
+      }
+    
+      if (this.clidTypeParam()) {
+        this.writeCookie("hyly_clid_type", this.clidTypeParam());
+      }
+
+      if (this.clidValueParam()) {
+        this.writeCookie("hyly_clid_value", this.clidValueParam());
+      }
+    
+      if (this.utmHylyMethodParam()) {
+        this.writeCookie("hyly_method", this.utmHylyMethodParam());
+      }
+      
+      if (this.utmHylyAssistParam()) {
+        this.writeCookie("hyly_assist", this.utmHylyAssistParam());
+      }
+      
+      this._ds = {
+        in_utm_source: this.utmSourceParam(),
+        in_utm_medium: this.utmMediumParam(),
+        in_utm_campaign: this.utmCampaignParam(),
+        in_utm_term: this.utmTermParam(),
+        in_utm_content: this.utmContentParam(),
+        in_hyly_method: this.utmHylyMethodParam() || this.getCookie("hyly_method"),
+        in_hyly_assist: this.utmHylyAssistParam() || this.getCookie("hyly_assist"),
+        in_url_param_src: this.srcParam(),
+        in_url_param_channel: this.channelParam(),
+        in_clid_type: this.clidTypeParam() || this.getCookie("hyly_clid_type"),
+        in_clid_value: this.clidValueParam() || this.getCookie("hyly_clid_value"),
+        in_page_url: this.pageUrl(),
+      
+        hybeacon_method_tag: this.extractSrcCookie().method,
+        hybeacon_source_tag: this.extractSrcCookie().source,
+        hybeacon_campaign_tag: this.extractSrcCookie().campaign,
+        hybeacon_channel_tag: this.getCookie("hyly_channel"),
+        hybeacon_assist_tag: this.getCookie("hyly_assist"),
+      
+        hybeacon_content_name: this.extractUtmzzCookie().content,
+        hybeacon_term: this.extractUtmzzCookie().term,
+      
+        hybeacon_cookie_value: this.extractInitialTrafficSourceCookie().hyly_cookie_src,
+        hybeacon_referrer_url: this.extractHylyutmzzCookie().External_Domain,
+        hybeacon_referral: data.referrer, // for now we will get from getReferrerUrl API instead of document.referrer
+        ssid: this.ssidParam() || this.getCookie("hyly_ssid"),
+        
+        original_phone_numbers: [], // DNI: original phone numbers on the website
+        hyly_cookie_src: this.extractInitialTrafficSourceCookie().hyly_cookie_src, // firstContact in extension
+        Warning: [], // warning in extension
+        Error: [], // error in extension
+        ErrorWithType: []
+      }
+    
+      // maintain cross domain ssid
+      if (navigator.userAgent && /bot|google|baidu|bing|msn|teoma|slurp|yandex|crawler|spider|robot|crawling/i.test(navigator.userAgent)) {
+        // ignore bots
+      } else {
+        this.getSsid();
+      }
+      
+      // event tracking
+      this.setupEventListener();
+
+      this.initAt = new Date().getTime();
+    }
+  }
+}
+
