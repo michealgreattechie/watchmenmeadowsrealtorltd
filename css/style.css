@@ -752,10 +752,6 @@ strong {
   }
 }
 
-
-
-
-
 /* Media Queries */
 @media (max-width: 1024px) {
   .image-text-grid {
@@ -803,99 +799,101 @@ button:hover {
 /* Media Queries */
 @media (max-width: 600px) {
   .cookie-popup {
-      width: 90%; /* Make popup wider on smaller screens */
-      padding: 10px; /* Reduce padding */
+    width: 90%; /* Make popup wider on smaller screens */
+    padding: 10px; /* Reduce padding */
   }
 
   button {
-      padding: 8px 10px; /* Adjust button size */
+    padding: 8px 10px; /* Adjust button size */
   }
 }
 
 @media (min-width: 601px) and (max-width: 900px) {
   .cookie-popup {
-      width: 80%; /* Adjust width for medium screens */
+    width: 80%; /* Adjust width for medium screens */
   }
 }
 
 /* whatsapp btn */
 
 .whatsapp-button {
-    position: fixed;
-    left: 20px; /* Distance from the left side */
-    bottom: 20px; /* Distance from the bottom */
-    background-color: #25D366; /* WhatsApp Green */
-    border-radius: 50%; /* Circular shape */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    padding: 15px; /* Padding around the icon */
-    z-index: 1000; /* Make sure it’s above other elements */
-    transition: transform 0.3s, background-color 0.3s; /* Smooth hover effect */
-    color: white; /* Icon color */
-    text-align: center; /* Center the icon */
-    font-size: 30px; /* Adjust font size */
-    animation: bounce 2s infinite; /* Bouncing animation */
-    border: 2px solid #25D366; /* Force a border for the icon */
+  position: fixed;
+  left: 20px; /* Distance from the left side */
+  bottom: 20px; /* Distance from the bottom */
+  background-color: #25d366; /* WhatsApp Green */
+  border-radius: 50%; /* Circular shape */
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  padding: 15px; /* Padding around the icon */
+  z-index: 1000; /* Make sure it’s above other elements */
+  transition: transform 0.3s, background-color 0.3s; /* Smooth hover effect */
+  color: white; /* Icon color */
+  text-align: center; /* Center the icon */
+  font-size: 30px; /* Adjust font size */
+  animation: bounce 2s infinite; /* Bouncing animation */
+  border: 2px solid #25d366; /* Force a border for the icon */
 }
 
 /* Change background color and text color on hover */
 .whatsapp-button:hover {
-    transform: scale(1.1); /* Scale up on hover */
-    background-color: white; /* Change background to white */
-    color: #25D366; /* Change icon color to WhatsApp green */
+  transform: scale(1.1); /* Scale up on hover */
+  background-color: white; /* Change background to white */
+  color: #25d366; /* Change icon color to WhatsApp green */
 }
 
 /* Bouncing Animation */
 @keyframes bounce {
-    0%, 20%, 50%, 80%, 100% {
-        transform: translateY(0);
-    }
-    40% {
-        transform: translateY(-10px); /* Move up */
-    }
-    60% {
-        transform: translateY(-5px); /* Slightly lower */
-    }
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px); /* Move up */
+  }
+  60% {
+    transform: translateY(-5px); /* Slightly lower */
+  }
 }
 
 /* Tooltip for hover effect */
 .whatsapp-button::after {
-    content: "WhatsApp us"; /* Tooltip text */
-    position: absolute;
-    bottom: 100%; /* Position above the button */
-    left: 50%; /* Center it */
-    transform: translateX(-50%) scale(0.8); /* Center and scale down */
-    background-color: #25D366; /* Background color */
-    color: white; /* Text color */
-    padding: 5px 10px; /* Padding */
-    border-radius: 5px; /* Rounded corners */
-    visibility: hidden; /* Initially hidden */
-    opacity: 0; /* Initially invisible */
-    transition: visibility 0s, opacity 0.3s linear, transform 0.3s; /* Transition effects */
-    white-space: nowrap; /* Prevent text wrapping */
+  content: "WhatsApp us"; /* Tooltip text */
+  position: absolute;
+  bottom: 100%; /* Position above the button */
+  left: 50%; /* Center it */
+  transform: translateX(-50%) scale(0.8); /* Center and scale down */
+  background-color: #25d366; /* Background color */
+  color: white; /* Text color */
+  padding: 5px 10px; /* Padding */
+  border-radius: 5px; /* Rounded corners */
+  visibility: hidden; /* Initially hidden */
+  opacity: 0; /* Initially invisible */
+  transition: visibility 0s, opacity 0.3s linear, transform 0.3s; /* Transition effects */
+  white-space: nowrap; /* Prevent text wrapping */
 }
 
 .whatsapp-button:hover::after {
-    visibility: visible; /* Show tooltip on hover */
-    opacity: 1; /* Make it visible */
-    transform: translateX(-50%) scale(1); /* Scale to full size */
+  visibility: visible; /* Show tooltip on hover */
+  opacity: 1; /* Make it visible */
+  transform: translateX(-50%) scale(1); /* Scale to full size */
 }
 
 /* Media Queries */
 @media (max-width: 600px) {
-    .whatsapp-button {
-        padding: 10px; /* Reduce padding on smaller screens */
-        font-size: 25px; /* Smaller icon size */
-    }
+  .whatsapp-button {
+    padding: 10px; /* Reduce padding on smaller screens */
+    font-size: 25px; /* Smaller icon size */
+  }
 }
 
 @media (min-width: 601px) and (max-width: 900px) {
-    .whatsapp-button {
-        padding: 12px; /* Adjust padding for medium screens */
-        font-size: 28px; /* Slightly smaller icon size */
-    }
+  .whatsapp-button {
+    padding: 12px; /* Adjust padding for medium screens */
+    font-size: 28px; /* Slightly smaller icon size */
+  }
 }
-
-
 
 /* Trusted Partners Section */
 
@@ -945,7 +943,7 @@ button:hover {
   margin-right: 15px;
   color: #86be10; /* Primary color */
 }
-.text-content p{
+.text-content p {
   text-align: left;
 }
 
@@ -1006,106 +1004,205 @@ button:hover {
 /* Large desktop screens (greater than 1200px) */
 @media (min-width: 1200px) {
   .content-container {
-      max-width: 1400px;
+    max-width: 1400px;
   }
 
   .text-content h1 {
-      font-size: 48px;
+    font-size: 48px;
   }
 
   .text-content h2 {
-      font-size: 30px;
+    font-size: 30px;
   }
 }
 
 /* Medium desktop screens (992px to 1199px) */
 @media (min-width: 992px) and (max-width: 1199px) {
   .content-container {
-      flex-direction: row;
+    flex-direction: row;
   }
 
   .text-content h1 {
-      font-size: 40px;
+    font-size: 40px;
   }
 
   .text-content h2 {
-      font-size: 28px;
+    font-size: 28px;
   }
 }
 
 /* Tablets (768px to 991px) */
 @media (min-width: 768px) and (max-width: 991px) {
   .content-container {
-      flex-direction: column;
-      text-align: center;
+    flex-direction: column;
+    text-align: center;
   }
 
   .text-content {
-      padding-right: 0;
-      margin-bottom: 30px;
+    padding-right: 0;
+    margin-bottom: 30px;
   }
 
   .text-content h1 {
-      font-size: 32px;
+    font-size: 32px;
   }
 
   .text-content h2 {
-      font-size: 24px;
+    font-size: 24px;
   }
 
   .cta-button {
-      font-size: 14px;
-      padding: 12px 20px;
+    font-size: 14px;
+    padding: 12px 20px;
   }
 }
 
 /* Small mobile screens (less than 767px) */
 @media (max-width: 767px) {
   .trusted-partners {
-      padding: 20px;
+    padding: 20px;
   }
 
   .content-container {
-      flex-direction: column;
-      text-align: center;
+    flex-direction: column;
+    text-align: center;
   }
 
   .text-content {
-      padding-right: 0;
-      margin-bottom: 20px;
+    padding-right: 0;
+    margin-bottom: 20px;
   }
 
   .text-content h1 {
-      font-size: 28px;
+    font-size: 28px;
   }
 
   .text-content h2 {
-      font-size: 20px;
+    font-size: 20px;
   }
 
   .cta-button {
-      font-size: 12px;
-      padding: 10px 18px;
+    font-size: 12px;
+    padding: 10px 18px;
   }
 
   .image-content img {
-      width: 100%;
-      max-width: 100%;
+    width: 100%;
+    max-width: 100%;
   }
 }
 
 /* Extra small mobile screens (less than 480px) */
 @media (max-width: 480px) {
   .text-content h1 {
-      font-size: 24px;
+    font-size: 24px;
   }
 
   .text-content h2 {
-      font-size: 18px;
+    font-size: 18px;
   }
 
   .cta-button {
-      font-size: 12px;
-      padding: 8px 15px;
+    font-size: 12px;
+    padding: 8px 15px;
+  }
+}
+
+.operation-hours {
+  text-align: center;
+  padding: 50px 20px;
+  background: #86be10;
+  border-top-left-radius: 40px;
+  border-top-right-radius: 40px;
+}
+
+.section-title {
+  font-size: 2rem;
+  margin-bottom: 30px;
+  color: #fff;
+}
+
+.section-title-bottom {
+  font-size: 2rem;
+  margin-bottom: 30px;
+  color: #fff;
+  padding-top: 2em;
+}
+
+/* Grid Container */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.grid-card {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(87, 142, 35, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.grid-card:hover {
+  transform: scale(1.05);
+}
+
+.grid-card h3 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.grid-card i {
+  font-size: 2rem;
+  color: #86be10; /* Changed icon color */
+  margin-bottom: 10px;
+}
+
+.grid-card p {
+  font-size: 1.1rem;
+  color: #555;
+}
+
+/* Media Query */
+@media (max-width: 768px) {
+  .grid-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+
+  .grid-card h3 {
+    font-size: 1.25rem;
+  }
+  .section-title {
+    font-size: 20px;
+  }
+  .section-title-bottom {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-container {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .grid-card h3 {
+    font-size: 1rem;
+  }
+
+  .grid-card i {
+    /* font-size: 1.5rem; */
+    font-size: 2rem;
+    color: #86be10; /* Changed icon color */
+    margin-bottom: 10px;
+  }
+
+  .grid-card p {
+    font-size: 1rem;
   }
 }
